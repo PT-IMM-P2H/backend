@@ -1,26 +1,15 @@
 # Backend Website PT. IMM P2H
 
-Backend Website PT. IMM P2H merupakan layanan **API** yang digunakan untuk mendukung proses **inspeksi kelayakan kendaraan operasional** di lingkungan PT. IMM Bontang. Sistem ini dirancang untuk mengelola data inspeksi kendaraan secara terstruktur, aman, dan mudah diintegrasikan dengan aplikasi frontend maupun sistem lain.
+Backend website ini digunakan untuk mendukung proses **inspeksi kelayakan kendaraan operasional** di perusahaan **PT. IMM Bontang**.
 
-## 🎯 Tujuan Sistem
-Backend ini dikembangkan dengan tujuan:
-- Menyediakan API untuk pencatatan dan pengelolaan data inspeksi kendaraan.
-- Menjamin keamanan data melalui sistem autentikasi pengguna.
-- Mendukung proses monitoring dan evaluasi kelayakan kendaraan perusahaan.
+## Teknologi yang Digunakan
+- **Framework**: FastAPI  
+- **Database**: SQLAlchemy  
+- **Authentication**: JWT (JSON Web Token)
 
-## 🛠️ Teknologi yang Digunakan
-Sistem backend ini dibangun menggunakan teknologi berikut:
-- **Framework**: FastAPI
-- **ORM Database**: SQLAlchemy
-- **Autentikasi**: JSON Web Token (JWT)
-- **Bahasa Pemrograman**: Python
+## Deskripsi Singkat
+Aplikasi ini berfungsi sebagai REST API untuk mengelola data inspeksi kendaraan layak pakai, autentikasi pengguna, serta penyimpanan data inspeksi secara terpusat.
 
-## 🚀 Fitur Utama
-- Autentikasi dan otorisasi pengguna berbasis JWT.
-- Manajemen data inspeksi kendaraan.
-- API yang terstruktur dan mudah dikembangkan.
-- Dokumentasi API otomatis menggunakan Swagger dan ReDoc.
-
-## 📚 Dokumentasi API
-Setelah server dijalankan, dokumentasi API dapat diakses melalui:
-- Swagger UI  
+## Referensi
+- Contoh repository:  
+  https://github.com/EAGS-Team11/BE?tab=readme-ov-file#be---back-end-eags-team-11
