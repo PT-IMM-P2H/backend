@@ -13,8 +13,8 @@ class UserBase(BaseModel):
     birth_date: Optional[date] = None
     no_handphone: Optional[str] = None
     
-    # Menggunakan UserRole.USER (Pastikan sesuai dengan atribut di models/user.py)
-    role: UserRole = Field(default=UserRole.USER)
+    # Menggunakan UserRole.user (lowercase sesuai dengan models/user.py)
+    role: UserRole = Field(default=UserRole.user)
     kategori_pengguna: UserKategori = Field(default=UserKategori.IMM)
     is_active: bool = True
 

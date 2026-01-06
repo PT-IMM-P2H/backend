@@ -17,7 +17,7 @@ router = APIRouter()
 async def create_user(
     user_data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.SUPERADMIN))
+    current_user: User = Depends(require_role(UserRole.superadmin))
 ):
     """
     Create a new user (Superadmin only).
@@ -41,7 +41,7 @@ async def get_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.SUPERADMIN, UserRole.ADMIN))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
     Get list of all users (Superadmin and Admin).
@@ -59,7 +59,7 @@ async def get_users(
 async def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.SUPERADMIN, UserRole.ADMIN))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
     Get user by ID (Superadmin and Admin).
@@ -82,7 +82,7 @@ async def update_user(
     user_id: UUID,
     user_data: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.SUPERADMIN))
+    current_user: User = Depends(require_role(UserRole.superadmin))
 ):
     """
     Update user (Superadmin only).
@@ -104,7 +104,7 @@ async def update_user(
 async def delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.SUPERADMIN))
+    current_user: User = Depends(require_role(UserRole.superadmin))
 ):
     """
     Delete user (soft delete, Superadmin only).

@@ -18,7 +18,7 @@ router = APIRouter()
 async def create_vehicle(
     vehicle_data: VehicleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.SUPERADMIN))
+    current_user: User = Depends(require_role(UserRole.superadmin))
 ):
     """
     Create a new vehicle (Superadmin only).
@@ -142,7 +142,7 @@ async def update_vehicle(
     vehicle_id: UUID,
     vehicle_data: VehicleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.SUPERADMIN))
+    current_user: User = Depends(require_role(UserRole.superadmin))
 ):
     """
     Update vehicle (Superadmin only).
@@ -181,7 +181,7 @@ async def update_vehicle(
 async def delete_vehicle(
     vehicle_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.SUPERADMIN))
+    current_user: User = Depends(require_role(UserRole.superadmin))
 ):
     """
     Delete vehicle (soft delete, Superadmin only).

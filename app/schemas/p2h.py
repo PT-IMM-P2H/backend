@@ -7,19 +7,34 @@ from app.models.p2h import InspectionStatus
 from app.models.vehicle import VehicleType
 
 
-# Checklist Schemas
+# --- Checklist Schemas ---
+
+class ChecklistItemCreate(BaseModel):
+    """Schema baru untuk menambah pertanyaan dari Front-End (Modal Tambah Pertanyaan)"""
+    question_text: str = Field(..., min_length=3, description="Isi teks pertanyaan")
+    section_name: str = Field(..., description="Kategori pertanyaan (e.g., REM, RODA)")
+    vehicle_tags: List[str] = Field(..., description="Daftar tipe kendaraan (e.g., ['LV', 'Bus'])")
+    applicable_shifts: List[str] = Field(..., description="Shift berlakunya pertanyaan")
+    options: List[str] = Field(default=["Baik", "Abnormal"], description="Pilihan jawaban")
+    item_order: int = Field(..., ge=1)
+
 class ChecklistItemResponse(BaseModel):
-    """Schema for checklist item response"""
+    """Schema for checklist item response - Diperbarui untuk mendukung Tagging"""
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
-    vehicle_type: VehicleType
+    # Tetap pertahankan field lama agar tidak error, tapi tambahkan field baru
+    vehicle_type: Optional[VehicleType] = None 
+    vehicle_tags: List[str] = []
+    applicable_shifts: List[str] = []
+    options: List[str] = []
     section_name: str
-    item_name: str
+    item_name: str # Mapping dari question_text di DB
     item_order: int
 
 
-# P2H Detail Schemas
+# --- P2H Detail Schemas ---
+
 class P2HDetailSubmit(BaseModel):
     """Schema for submitting P2H detail"""
     checklist_item_id: UUID
@@ -47,7 +62,8 @@ class P2HDetailResponse(BaseModel):
     keterangan: Optional[str]
 
 
-# P2H Report Schemas
+# --- P2H Report Schemas ---
+
 class P2HReportSubmit(BaseModel):
     """Schema for submitting P2H report"""
     vehicle_id: UUID
