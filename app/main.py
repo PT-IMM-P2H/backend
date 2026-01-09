@@ -12,6 +12,10 @@ from app.utils.response import base_response
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# --- KONFIGURASI PORT ---
+# Kita set ke 8000 sebagai port default aplikasi
+PORT = 8000 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -23,8 +27,8 @@ async def lifespan(app: FastAPI):
     print("\n" + "="*60)
     print("                P2H SYSTEM PT. IMM BONTANG")
     print("="*60)
-    print(f"🚀 Main API      : http://127.0.0.1:8000")
-    print(f"📝 Swagger UI    : http://127.0.0.1:8000/docs")
+    print(f"🚀 Main API      : http://127.0.0.1:{PORT}")
+    print(f"📝 Swagger UI    : http://127.0.0.1:{PORT}/docs")
     print("="*60 + "\n")
 
     try:
@@ -52,21 +56,21 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# 2. KONFIGURASI CORS (Update Sesuai Request Anda)
+# 2. KONFIGURASI CORS (UPDATED!)
 # Tentukan origin yang diizinkan (URL Frontend Vite Anda)
 origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "http://localhost:5173",    # Frontend Default
+    "http://127.0.0.1:5173",    # Frontend Default IP
+    "http://localhost:5174",    # 👈 TAMBAHAN PENTING: Frontend Port Cadangan (Vite sering lompat ke sini)
+    "http://127.0.0.1:5174",    # 👈 TAMBAHAN PENTING
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,           # Menggunakan list origins yang sudah didefinisikan
-    allow_credentials=True,          # WAJIB True untuk Cookie-based Auth
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],  # Include OPTIONS for preflight
-    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],  # Add more headers
-    expose_headers=["Content-Type", "Authorization"],  # Headers that browser can access
-    max_age=3600,  # Cache preflight requests for 1 hour
+    allow_origins=origins,
+    allow_credentials=True,     # WAJIB True untuk Cookie-based Auth & JWT
+    allow_methods=["*"],        # Izinkan semua method (GET, POST, PUT, DELETE, OPTIONS, dll) untuk mempermudah dev
+    allow_headers=["*"],        # Izinkan semua header (termasuk Authorization)
 )
 
 # --- CUSTOM EXCEPTION HANDLERS ---
@@ -74,7 +78,8 @@ app.add_middleware(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
-    field = errors[0]['loc'][-1]
+    # Handle case where loc might be empty
+    field = errors[0]['loc'][-1] if errors[0]['loc'] else "Unknown"
     msg = f"Kesalahan pada field {field}: {errors[0]['msg']}"
     
     return base_response(
@@ -118,4 +123,5 @@ app.include_router(master_data.router, prefix="/master-data", tags=["Master Data
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
+    # Port 8000 sebagai default aplikasi
+    uvicorn.run("app.main:app", host="127.0.0.1", port=PORT, reload=True)

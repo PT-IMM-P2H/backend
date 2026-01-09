@@ -7,7 +7,7 @@ import enum
 
 from app.database import Base
 
-class VehicleType(str, enum.Enum):
+class VehicleType(enum.Enum):
     """Tipe kendaraan yang tersedia di sistem"""
     LIGHT_VEHICLE = "Light Vehicle"
     ELECTRIC_VEHICLE = "Electric Vehicle"
@@ -21,11 +21,11 @@ class VehicleType(str, enum.Enum):
 
 
     
-class ShiftType(str, enum.Enum):
+class ShiftType(enum.Enum):
     SHIFT = "shift"
     NON_SHIFT = "non_shift"
 
-class UnitKategori(str, enum.Enum):
+class UnitKategori(enum.Enum):
     IMM = "IMM"
     TRAVEL = "TRAVEL"
 
@@ -36,7 +36,7 @@ class Vehicle(Base):
     no_lambung = Column(String(50), unique=True, nullable=True, index=True)
     warna_no_lambung = Column(String(20), nullable=True)
     plat_nomor = Column(String(20), nullable=False, index=True)
-    vehicle_type = Column(SQLEnum(VehicleType), nullable=False)
+    vehicle_type = Column(SQLEnum(VehicleType, values_callable=lambda x: [e.value for e in x]), nullable=False)
     merk = Column(String(100), nullable=True)
     
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=True)

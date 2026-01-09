@@ -37,7 +37,7 @@ async def login(
     )
     
     # 3. Siapkan data user untuk payload (menggunakan schema UserResponse)
-    user_data = UserResponse.model_validate(user).model_dump()
+    user_data = UserResponse.model_validate(user).model_dump(mode='json')
     
     # 4. Buat objek response menggunakan wrapper base_response
     # Token tetap dikirim di payload agar FE bisa menyimpannya jika diperlukan (opsional)

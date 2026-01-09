@@ -66,7 +66,7 @@ uvicorn app.main:app --reload
 
 atau dengan host dan port spesifik:
 ```powershell
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
 ### 3. Akses Aplikasi

@@ -10,13 +10,13 @@ from app.models.mixins import SoftDeleteMixin
 
 # --- 1. ENUMS ---
 
-class UserRole(str, enum.Enum):
+class UserRole(enum.Enum):
     """Role Utama Sistem P2H"""
     superadmin = "superadmin"
     admin = "admin"
     user = "user"
 
-class UserKategori(str, enum.Enum):
+class UserKategori(enum.Enum):
     """Pembeda entitas untuk filter laporan (IMM vs Travel)"""
     IMM = "IMM"
     TRAVEL = "TRAVEL"

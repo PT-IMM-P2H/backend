@@ -60,9 +60,10 @@ def seed_users(db: Session):
 
     users_data = [
         {
-            "username": "andi_aldo",
+            "email": "andi.aldo@imm.co.id",
             "full_name": "Andi Aldo",
-            "no_handphone": "081243569877",
+            "phone_number": "081243569877",
+            "birth_date": date(1990, 1, 15),
             "department_id": dept_port.id if dept_port else None,
             "position_id": pos_head.id if pos_head else None,
             "work_status_id": stat_karyawan.id if stat_karyawan else None,
@@ -73,12 +74,18 @@ def seed_users(db: Session):
     ]
 
     for u_data in users_data:
-        if not db.query(User).filter_by(username=u_data["username"]).first():
+        # Generate password: namadepanDDMMYYYY
+        first_name = u_data["full_name"].split()[0].lower()
+        date_part = u_data["birth_date"].strftime("%d%m%Y")
+        password = f"{first_name}{date_part}"
+        
+        if not db.query(User).filter_by(phone_number=u_data["phone_number"]).first():
             new_user = User(
-                username=u_data["username"],
-                password_hash=hash_password("password123"),
+                email=u_data["email"],
+                password_hash=hash_password(password),
                 full_name=u_data["full_name"],
-                no_handphone=u_data["no_handphone"],
+                phone_number=u_data["phone_number"],
+                birth_date=u_data["birth_date"],
                 department_id=u_data["department_id"],
                 position_id=u_data["position_id"],
                 work_status_id=u_data["work_status_id"],
@@ -87,6 +94,9 @@ def seed_users(db: Session):
                 role=u_data["role"]
             )
             db.add(new_user)
+            print(f"✅ User created: {u_data['full_name']}")
+            print(f"   Phone: {u_data['phone_number']}")
+            print(f"   Password: {password}")
     
     db.commit()
     print("✅ Users seeded.")
@@ -95,14 +105,14 @@ def seed_vehicles(db: Session):
     print("🚗 Seeding Vehicles...")
     
     imm_co = db.query(Company).filter_by(nama_perusahaan="PT Indominco Mandiri").first()
-    user_andi = db.query(User).filter_by(username="andi_aldo").first()
+    user_andi = db.query(User).filter_by(phone_number="081243569877").first()
 
     vehicles = [
         {
             "no_lambung": "P.309",
             "warna_no_lambung": "Kuning",
             "plat_nomor": "KT 1234 ZM",
-            "vehicle_type": VehicleType.LV,
+            "vehicle_type": VehicleType.LIGHT_VEHICLE,
             "merk": "Toyota Innova reborn 2.4G",
             "user_id": user_andi.id if user_andi else None,
             "company_id": imm_co.id if imm_co else None,

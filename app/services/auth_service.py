@@ -60,17 +60,20 @@ class AuthService:
     @staticmethod
     def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
         """
-        Authenticate a user with username and password.
+        Authenticate a user with username (email or phone_number) and password.
         
         Args:
             db: Database session
-            username: Username
+            username: Email or phone number
             password: Password
             
         Returns:
             User if authentication successful, None otherwise
         """
-        user = db.query(User).filter(User.username == username).first()
+        # Try to find user by email or phone_number
+        user = db.query(User).filter(
+            (User.email == username) | (User.phone_number == username)
+        ).first()
         
         if not user:
             return None
@@ -136,25 +139,25 @@ class AuthService:
         if user_data.full_name is not None:
             user.full_name = user_data.full_name
         
-        if user_data.first_name is not None:
-            # If first_name or birth_date changed, regenerate username
-            if user_data.first_name != user.first_name or (user_data.birth_date and user_data.birth_date != user.birth_date):
-                new_first_name = user_data.first_name
-                new_birth_date = user_data.birth_date if user_data.birth_date else user.birth_date
-                new_username = generate_username(new_first_name, new_birth_date)
-                
-                # Check if new username already exists
-                existing = db.query(User).filter(
-                    User.username == new_username,
-                    User.id != user_id
-                ).first()
-                
-                if existing:
-                    raise ValueError(f"Username {new_username} sudah digunakan")
-                
-                user.username = new_username
-            
-            user.first_name = user_data.first_name
+        if user_data.email is not None:
+            # Check if email already exists
+            existing = db.query(User).filter(
+                User.email == user_data.email,
+                User.id != user_id
+            ).first()
+            if existing:
+                raise ValueError(f"Email {user_data.email} sudah digunakan")
+            user.email = user_data.email
+        
+        if user_data.phone_number is not None:
+            # Check if phone already exists
+            existing = db.query(User).filter(
+                User.phone_number == user_data.phone_number,
+                User.id != user_id
+            ).first()
+            if existing:
+                raise ValueError(f"Nomor HP {user_data.phone_number} sudah digunakan")
+            user.phone_number = user_data.phone_number
         
         if user_data.birth_date is not None:
             user.birth_date = user_data.birth_date
@@ -162,8 +165,23 @@ class AuthService:
         if user_data.role is not None:
             user.role = user_data.role
         
+        if user_data.kategori_pengguna is not None:
+            user.kategori_pengguna = user_data.kategori_pengguna
+        
         if user_data.is_active is not None:
             user.is_active = user_data.is_active
+        
+        if user_data.department_id is not None:
+            user.department_id = user_data.department_id
+        
+        if user_data.position_id is not None:
+            user.position_id = user_data.position_id
+        
+        if user_data.work_status_id is not None:
+            user.work_status_id = user_data.work_status_id
+        
+        if user_data.company_id is not None:
+            user.company_id = user_data.company_id
         
         if user_data.password is not None:
             user.password_hash = hash_password(user_data.password)
