@@ -1,9 +1,28 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import date, datetime
 from typing import Optional, List
 from uuid import UUID
 
 from app.models.vehicle import VehicleType, ShiftType
+
+
+# Nested schemas for relations
+class UserSimpleResponse(BaseModel):
+    """Simple user info for vehicle response"""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: UUID
+    full_name: str
+    phone_number: Optional[str]
+    email: Optional[str]
+
+
+class CompanySimpleResponse(BaseModel):
+    """Simple company info for vehicle response"""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: UUID
+    nama_perusahaan: str
 
 
 # Vehicle Schemas
@@ -14,8 +33,13 @@ class VehicleBase(BaseModel):
     plat_nomor: Optional[str] = Field(None, max_length=20)
     vehicle_type: VehicleType
     merk: Optional[str] = Field(None, max_length=50)
-    stnk_expired: Optional[date] = None
-    kir_expired: Optional[date] = None
+    user_id: Optional[UUID] = None
+    company_id: Optional[UUID] = None
+    no_rangka: Optional[str] = Field(None, max_length=100)
+    no_mesin: Optional[str] = Field(None, max_length=100)
+    stnk_expiry: Optional[date] = None
+    pajak_expiry: Optional[date] = None
+    kir_expiry: Optional[date] = None
     shift_type: ShiftType = Field(default=ShiftType.SHIFT)
 
 
@@ -31,8 +55,13 @@ class VehicleUpdate(BaseModel):
     plat_nomor: Optional[str] = Field(None, max_length=20)
     vehicle_type: Optional[VehicleType] = None
     merk: Optional[str] = Field(None, max_length=50)
-    stnk_expired: Optional[date] = None
-    kir_expired: Optional[date] = None
+    user_id: Optional[UUID] = None
+    company_id: Optional[UUID] = None
+    no_rangka: Optional[str] = Field(None, max_length=100)
+    no_mesin: Optional[str] = Field(None, max_length=100)
+    stnk_expiry: Optional[date] = None
+    pajak_expiry: Optional[date] = None
+    kir_expiry: Optional[date] = None
     shift_type: Optional[ShiftType] = None
     is_active: Optional[bool] = None
 
@@ -47,12 +76,21 @@ class VehicleResponse(BaseModel):
     plat_nomor: Optional[str]
     vehicle_type: VehicleType
     merk: Optional[str]
-    stnk_expired: Optional[date]
-    kir_expired: Optional[date]
+    user_id: Optional[UUID]
+    company_id: Optional[UUID]
+    no_rangka: Optional[str]
+    no_mesin: Optional[str]
+    stnk_expiry: Optional[date]
+    pajak_expiry: Optional[date]
+    kir_expiry: Optional[date]
     is_active: bool
     shift_type: ShiftType
     created_at: datetime
     updated_at: datetime
+    
+    # Nested relations
+    user: Optional[UserSimpleResponse] = None
+    company: Optional[CompanySimpleResponse] = None
 
 
 class VehicleP2HStatus(BaseModel):

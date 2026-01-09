@@ -1,30 +1,76 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from uuid import UUID
 
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.vehicle import Vehicle
-from app.schemas.vehicle import VehicleCreate, VehicleUpdate, VehicleResponse, VehicleP2HStatus
+from app.schemas.vehicle import VehicleCreate, VehicleUpdate, VehicleResponse
 from app.dependencies import get_current_user, require_role
 from app.services.p2h_service import p2h_service
-from app.utils.response import base_response  # Import wrapper response standar
+from app.utils.response import base_response 
 
 router = APIRouter()
 
+# --- ENDPOINT PUBLIK (TANPA LOGIN) ---
+
+@router.get("/lambung/{no_lambung}")
+async def get_vehicle_by_lambung(
+    no_lambung: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Mencari kendaraan berdasarkan nomor lambung secara publik.
+    Digunakan oleh driver untuk validasi unit sebelum mengisi form P2H.
+    """
+    vehicle = db.query(Vehicle).filter(Vehicle.no_lambung == no_lambung).first()
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Kendaraan dengan nomor lambung {no_lambung} tidak ditemukan"
+        )
+    
+    # Mendapatkan status P2H hari ini (Shift, ketersediaan, dll)
+    p2h_status = p2h_service.get_vehicle_p2h_status(db, vehicle.id)
+    
+    # Cek apakah masih bisa submit P2H
+    current_shift = p2h_status["current_shift"]
+    can_submit, submit_message = p2h_service.can_submit_p2h(db, vehicle, current_shift)
+    
+    # Gabungkan data kendaraan dan status P2H dalam satu payload
+    result = {
+        "vehicle": VehicleResponse.model_validate(vehicle).model_dump(mode='json'),
+        "can_submit_p2h": can_submit,
+        "p2h_completed_today": p2h_status["color_code"] == "green",
+        "current_shift": current_shift,
+        "shifts_completed": p2h_status["shifts_completed"],
+        "status_p2h": p2h_status["status_p2h"],
+        "color_code": p2h_status["color_code"],
+        "message": submit_message
+    }
+    
+    return base_response(
+        message="Data unit dan status P2H berhasil ditemukan",
+        payload=result
+    )
+
+
+# --- ENDPOINT TERPROTEKSI (WAJIB LOGIN) ---
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_vehicle(
     vehicle_data: VehicleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.superadmin))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
-    Create a new vehicle (Superadmin only).
+    Menambah kendaraan baru (Superadmin dan Admin).
     """
-    # Check if no_lambung already exists
-    existing = db.query(Vehicle).filter(Vehicle.no_lambung == vehicle_data.no_lambung).first()
+    existing = db.query(Vehicle).filter(
+        Vehicle.no_lambung == vehicle_data.no_lambung,
+        Vehicle.is_active == True
+    ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -47,16 +93,25 @@ async def create_vehicle(
 async def get_vehicles(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    search: Optional[str] = Query(None, description="Search by nomor lambung, plat, atau merk"),
-    vehicle_type: Optional[str] = Query(None, description="Filter by vehicle type"),
-    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    search: Optional[str] = Query(None, description="Cari berdasarkan nomor lambung, plat, atau merk"),
+    vehicle_type: Optional[str] = Query(None, description="Filter tipe kendaraan"),
+    is_active: Optional[bool] = Query(None, description="Filter status aktif"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get list of vehicles with search and filter.
+    Mendapatkan semua daftar kendaraan (Wajib Login).
     """
-    query = db.query(Vehicle)
+    query = db.query(Vehicle).options(
+        joinedload(Vehicle.user),
+        joinedload(Vehicle.company)
+    )
+    
+    # Default: hanya ambil data aktif, kecuali is_active diset eksplisit
+    if is_active is None:
+        query = query.filter(Vehicle.is_active == True)
+    else:
+        query = query.filter(Vehicle.is_active == is_active)
     
     if search:
         search_term = f"%{search}%"
@@ -69,49 +124,12 @@ async def get_vehicles(
     if vehicle_type:
         query = query.filter(Vehicle.vehicle_type == vehicle_type)
     
-    if is_active is not None:
-        query = query.filter(Vehicle.is_active == is_active)
-    
     vehicles = query.offset(skip).limit(limit).all()
-    payload = [VehicleResponse.model_validate(v).model_dump() for v in vehicles]
+    payload = [VehicleResponse.model_validate(v).model_dump(mode='json') for v in vehicles]
     
     return base_response(
         message="Daftar kendaraan berhasil diambil",
         payload=payload
-    )
-
-
-@router.get("/lambung/{no_lambung}")
-async def get_vehicle_by_lambung(
-    no_lambung: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Search vehicle by nomor lambung and get P2H status.
-    """
-    vehicle = db.query(Vehicle).filter(Vehicle.no_lambung == no_lambung).first()
-    if not vehicle:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Kendaraan dengan nomor lambung {no_lambung} tidak ditemukan"
-        )
-    
-    p2h_status = p2h_service.get_vehicle_p2h_status(db, vehicle.id)
-    
-    # Gabungkan data kendaraan dan status P2H dalam satu payload rapi
-    result = {
-        "vehicle": VehicleResponse.model_validate(vehicle).model_dump(),
-        "can_submit_p2h": p2h_status["can_submit_p2h"],
-        "p2h_completed_today": p2h_status["p2h_completed_today"],
-        "current_shift": p2h_status["current_shift"],
-        "shifts_completed": p2h_status["shifts_completed"],
-        "message": p2h_status["message"]
-    }
-    
-    return base_response(
-        message="Status P2H kendaraan berhasil diambil",
-        payload=result
     )
 
 
@@ -122,9 +140,12 @@ async def get_vehicle(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get vehicle by ID.
+    Mendapatkan detail kendaraan berdasarkan ID (Wajib Login).
     """
-    vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+    vehicle = db.query(Vehicle).options(
+        joinedload(Vehicle.user),
+        joinedload(Vehicle.company)
+    ).filter(Vehicle.id == vehicle_id).first()
     if not vehicle:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -133,7 +154,7 @@ async def get_vehicle(
     
     return base_response(
         message="Data kendaraan ditemukan",
-        payload=VehicleResponse.model_validate(vehicle).model_dump()
+        payload=VehicleResponse.model_validate(vehicle).model_dump(mode='json')
     )
 
 
@@ -142,10 +163,10 @@ async def update_vehicle(
     vehicle_id: UUID,
     vehicle_data: VehicleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.superadmin))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
-    Update vehicle (Superadmin only).
+    Memperbarui data kendaraan (Superadmin dan Admin).
     """
     vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not vehicle:
@@ -181,10 +202,10 @@ async def update_vehicle(
 async def delete_vehicle(
     vehicle_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.superadmin))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
-    Delete vehicle (soft delete, Superadmin only).
+    Menonaktifkan kendaraan/Soft Delete (Superadmin dan Admin).
     """
     vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not vehicle:
@@ -197,6 +218,6 @@ async def delete_vehicle(
     db.commit()
     
     return base_response(
-        message="Kendaraan berhasil dinonaktifkan (soft delete)",
+        message="Kendaraan berhasil dinonaktifkan",
         payload={"vehicle_id": str(vehicle_id)}
     )

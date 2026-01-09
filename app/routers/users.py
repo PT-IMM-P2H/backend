@@ -8,25 +8,25 @@ from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.services.auth_service import auth_service
 from app.dependencies import get_current_user, require_role
-from app.utils.response import base_response  # Import wrapper response standar
+from app.utils.response import base_response 
 
 router = APIRouter()
-
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.superadmin))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
-    Create a new user (Superadmin only).
+    Menambah Karyawan/User Baru (Superadmin dan Admin).
+    Password akan otomatis dibuat: namadepan + DDMMYYYY jika dikosongkan.
     """
     try:
         user = auth_service.create_user(db, user_data)
         return base_response(
-            message="User berhasil dibuat",
-            payload=UserResponse.model_validate(user).model_dump(),
+            message="User berhasil didaftarkan ke sistem",
+            payload=UserResponse.model_validate(user).model_dump(mode='json'),
             status_code=status.HTTP_201_CREATED
         )
     except ValueError as e:
@@ -34,7 +34,6 @@ async def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-
 
 @router.get("")
 async def get_users(
@@ -44,16 +43,16 @@ async def get_users(
     current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
-    Get list of all users (Superadmin and Admin).
+    Melihat Daftar Semua User (Superadmin dan Admin).
     """
     users = auth_service.get_all_users(db, skip=skip, limit=limit)
-    payload = [UserResponse.model_validate(u).model_dump() for u in users]
+    # Data dikonversi ke UserResponse agar password_hash tidak ikut terkirim
+    payload = [UserResponse.model_validate(u).model_dump(mode='json') for u in users]
     
     return base_response(
         message="Daftar user berhasil diambil",
         payload=payload
     )
-
 
 @router.get("/{user_id}")
 async def get_user(
@@ -62,7 +61,7 @@ async def get_user(
     current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
-    Get user by ID (Superadmin and Admin).
+    Melihat Detail User berdasarkan ID.
     """
     user = auth_service.get_user_by_id(db, user_id)
     if not user:
@@ -73,25 +72,24 @@ async def get_user(
     
     return base_response(
         message="Data user ditemukan",
-        payload=UserResponse.model_validate(user).model_dump()
+        payload=UserResponse.model_validate(user).model_dump(mode='json')
     )
-
 
 @router.put("/{user_id}")
 async def update_user(
     user_id: UUID,
     user_data: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.superadmin))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
-    Update user (Superadmin only).
+    Memperbarui Data User (Superadmin dan Admin).
     """
     try:
         user = auth_service.update_user(db, user_id, user_data)
         return base_response(
-            message="User berhasil diperbarui",
-            payload=UserResponse.model_validate(user).model_dump()
+            message="Data user berhasil diperbarui",
+            payload=UserResponse.model_validate(user).model_dump(mode='json')
         )
     except ValueError as e:
         raise HTTPException(
@@ -99,15 +97,14 @@ async def update_user(
             detail=str(e)
         )
 
-
 @router.delete("/{user_id}")
 async def delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.superadmin))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
-    Delete user (soft delete, Superadmin only).
+    Menonaktifkan User (Soft Delete, Superadmin dan Admin).
     """
     success = auth_service.delete_user(db, user_id)
     if not success:
@@ -117,6 +114,6 @@ async def delete_user(
         )
     
     return base_response(
-        message="User berhasil dihapus (soft delete)",
+        message="User berhasil dinonaktifkan",
         payload={"user_id": str(user_id)}
     )

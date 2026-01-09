@@ -4,45 +4,72 @@ from typing import Optional
 from uuid import UUID
 from app.models.user import UserRole, UserKategori
 
+# --- NESTED SCHEMAS FOR RELATIONS ---
+class CompanyResponse(BaseModel):
+    id: UUID
+    nama_perusahaan: str
+    status: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class DepartmentResponse(BaseModel):
+    id: UUID
+    nama_department: str
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class PositionResponse(BaseModel):
+    id: UUID
+    nama_posisi: str
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class WorkStatusResponse(BaseModel):
+    id: UUID
+    nama_status: str
+    
+    model_config = ConfigDict(from_attributes=True)
+
 # --- 1. USER BASE SCHEMA ---
 class UserBase(BaseModel):
-    """Schema dasar untuk data pengguna"""
-    username: str = Field(..., min_length=5, max_length=20, pattern="^[a-zA-Z0-9_]+$")
+    """Schema dasar untuk data pengguna (Tanpa Username & First Name)"""
     full_name: str = Field(..., min_length=1, max_length=100)
-    first_name: Optional[str] = Field(None, max_length=50)
+    email: str = Field(..., description="Alamat email aktif")
+    phone_number: str = Field(..., description="Nomor HP aktif (Kredensial Login)")
     birth_date: Optional[date] = None
-    no_handphone: Optional[str] = None
     
-    # Menggunakan UserRole.user (lowercase sesuai dengan models/user.py)
     role: UserRole = Field(default=UserRole.user)
     kategori_pengguna: UserKategori = Field(default=UserKategori.IMM)
     is_active: bool = True
 
-# --- 2. USER CREATE SCHEMA ---
+# --- 2. USER LOGIN SCHEMA ---
+class UserLogin(BaseModel):
+    """Skema login menggunakan Nomor HP sesuai arahan pembimbing"""
+    phone_number: str = Field(..., description="Nomor HP yang terdaftar")
+    password: str = Field(..., description="Password (Default: namadepanDDMMYYYY)")
+
+# --- 3. USER CREATE SCHEMA ---
 class UserCreate(UserBase):
     """
     Schema untuk registrasi user baru.
-    Menambahkan validasi password sesuai standar keamanan.
+    Password sekarang opsional karena akan otomatis dibuatkan jika kosong
+    dengan format: namadepanDDMMYYYY
     """
-    password: str = Field(
-        ..., 
-        min_length=8, 
-        description="Password minimal 8 karakter, mengandung huruf besar, kecil, dan angka"
-    )
+    password: Optional[str] = Field(None, min_length=8)
     
-    # Relasi ke Master Data (Tetap dipertahankan agar ID relasi masuk ke payload)
+    # Relasi ke Master Data PT. IMM
     department_id: Optional[UUID] = None
     position_id: Optional[UUID] = None
     work_status_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
 
-# --- 3. USER UPDATE SCHEMA ---
+# --- 4. USER UPDATE SCHEMA ---
 class UserUpdate(BaseModel):
     """Schema untuk update data user (semua field optional)"""
     full_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    first_name: Optional[str] = Field(None, max_length=50)
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
     birth_date: Optional[date] = None
-    no_handphone: Optional[str] = None
     role: Optional[UserRole] = None
     kategori_pengguna: Optional[UserKategori] = None
     is_active: Optional[bool] = None
@@ -53,25 +80,31 @@ class UserUpdate(BaseModel):
     work_status_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
 
-# --- 4. USER RESPONSE SCHEMA ---
+# --- 5. USER RESPONSE SCHEMA ---
 class UserResponse(BaseModel):
     """
-    Schema untuk output API. 
-    Struktur ini akan dibungkus oleh base_response di controller/router.
+    Schema untuk output API terstandarisasi.
     """
     id: UUID
-    username: str
     full_name: str
-    first_name: Optional[str]
-    birth_date: Optional[date]
-    no_handphone: Optional[str]
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    birth_date: Optional[date] = None
     role: UserRole
     kategori_pengguna: UserKategori
     is_active: bool
     
+    # Metadata Relasi (IDs)
     department_id: Optional[UUID]
     position_id: Optional[UUID]
+    work_status_id: Optional[UUID]
     company_id: Optional[UUID]
+    
+    # Nested Relations (Objects)
+    company: Optional[CompanyResponse] = None
+    department: Optional[DepartmentResponse] = None
+    position: Optional[PositionResponse] = None
+    work_status: Optional[WorkStatusResponse] = None
     
     created_at: datetime
     updated_at: datetime

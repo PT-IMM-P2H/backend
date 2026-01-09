@@ -26,7 +26,7 @@ router = APIRouter()
 async def add_checklist_item(
     item_data: ChecklistItemCreate, 
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.superadmin))
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
 ):
     """
     Endpoint untuk menambah pertanyaan baru langsung dari UI Front-End.

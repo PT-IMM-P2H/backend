@@ -8,11 +8,18 @@ import enum
 from app.database import Base
 
 class VehicleType(str, enum.Enum):
-    EV = "EV"
-    LV = "LV"
-    DC = "DC"
-    BIS = "BIS"
-    SC = "SC"
+    """Tipe kendaraan yang tersedia di sistem"""
+    LIGHT_VEHICLE = "Light Vehicle"
+    ELECTRIC_VEHICLE = "Electric Vehicle"
+    DOUBLE_CABIN = "Double Cabin"
+    SINGLE_CABIN = "Single Cabin"
+    BUS = "Bus"
+    AMBULANCE = "Ambulance"
+    FIRE_TRUCK = "Fire Truck"
+    KOMANDO = "Komando"
+    TRUK_SAMPAH = "Truk Sampah"
+
+
     
 class ShiftType(str, enum.Enum):
     SHIFT = "shift"
