@@ -55,3 +55,28 @@ htmlcov/
 
 # Alembic
 alembic/versions/*.pyc
+
+# Development and testing files - tidak perlu di-publish
+test_*.py
+*_test.py
+check_*.py
+verify_*.py
+fix_*.py
+update_user_passwords.py
+
+# Documentation files - internal only
+CARA_JALANKAN.md
+QUICK_START.md
+
+# Excel data files
+*.xlsx
+*.xls
+~$*.xlsx
+~$*.xls
+
+# Package management
+package-lock.json
+
+# Keep essential documentation
+!README.md
+!docs/**/*.md
