@@ -1,58 +1,47 @@
-from passlib.context import CryptContext
+import bcrypt
 from datetime import date
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(password: str) -> str:
     """
-    Hash a password using bcrypt.
-    
-    Args:
-        password: Plain text password
-        
-    Returns:
-        Hashed password
+    Mengubah password mentah menjadi hash (bcrypt).
+    Bcrypt hanya menerima max 72 bytes.
     """
-    return pwd_context.hash(password)
-
+    # Encode dan truncate ke 72 bytes
+    password_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Verify a password against a hash.
-    
-    Args:
-        plain_password: Plain text password
-        hashed_password: Hashed password from database
-        
-    Returns:
-        True if password matches, False otherwise
+    Memverifikasi apakah password cocok dengan hash.
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    # Encode dan truncate ke 72 bytes
+    password_bytes = plain_password.encode('utf-8')[:72]
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
-
+# --- FUNGSI INI DIKEMBALIKAN AGAR TIDAK ERROR IMPORT ---
 def generate_username(first_name: str, birth_date: date) -> str:
     """
-    Generate username from first name and birth date.
-    Format: [FirstName][DDMMYYYY]
+    Membuat username dari nama depan + tanggal lahir.
+    Contoh: Budi + 1990-05-15 -> budi15051990
     
-    Example:
-        first_name = "Budi"
-        birth_date = 1990-05-15
-        result = "Budi15051990"
-    
-    Args:
-        first_name: User's first name
-        birth_date: User's birth date
-        
-    Returns:
-        Generated username
+    Catatan: Fungsi ini dipertahankan agar auth_service.py tidak error,
+    meskipun kolom 'username' mungkin sudah tidak dipakai di database.
     """
-    # Format date as DDMMYYYY
+    # Safety check jika birth_date kosong
+    if not birth_date:
+        # Fallback hanya pakai nama
+        return first_name.lower().replace(" ", "")
+        
+    # Ambil tanggal format DDMMYYYY
     date_str = birth_date.strftime("%d%m%Y")
     
-    # Combine first name with date
-    username = f"{first_name}{date_str}"
+    # Ambil kata pertama dari nama, lowercase
+    first_name_clean = first_name.split()[0].lower()
+    
+    # Gabung
+    username = f"{first_name_clean}{date_str}"
     
     return username

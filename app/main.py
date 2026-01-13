@@ -56,21 +56,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# 2. KONFIGURASI CORS (UPDATED!)
-# Tentukan origin yang diizinkan (URL Frontend Vite Anda)
-origins = [
-    "http://localhost:5173",    # Frontend Default
-    "http://127.0.0.1:5173",    # Frontend Default IP
-    "http://localhost:5174",    # 👈 TAMBAHAN PENTING: Frontend Port Cadangan (Vite sering lompat ke sini)
-    "http://127.0.0.1:5174",    # 👈 TAMBAHAN PENTING
-]
-
+# 2. KONFIGURASI CORS - Menggunakan settings dari .env
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.cors_origins_list,  # Ambil dari .env
     allow_credentials=True,     # WAJIB True untuk Cookie-based Auth & JWT
-    allow_methods=["*"],        # Izinkan semua method (GET, POST, PUT, DELETE, OPTIONS, dll) untuk mempermudah dev
+    allow_methods=["*"],        # Izinkan semua method (GET, POST, PUT, DELETE, OPTIONS, dll)
     allow_headers=["*"],        # Izinkan semua header (termasuk Authorization)
+    expose_headers=["*"],       # Expose semua headers ke frontend
 )
 
 # --- CUSTOM EXCEPTION HANDLERS ---
@@ -113,13 +106,14 @@ async def root():
     )
 
 # Import and register routers
-from app.routers import auth, users, vehicles, p2h, master_data
+from app.routers import auth, users, vehicles, p2h, master_data, dashboard
 
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(vehicles.router, prefix="/vehicles", tags=["Vehicles"])
 app.include_router(p2h.router, prefix="/p2h", tags=["P2H Inspection"])
 app.include_router(master_data.router, prefix="/master-data", tags=["Master Data"])
+app.include_router(dashboard.router, tags=["Dashboard"])
 
 if __name__ == "__main__":
     import uvicorn

@@ -17,10 +17,79 @@ from app.schemas.p2h import (
 from app.services.p2h_service import p2h_service
 from app.dependencies import get_current_user, require_role
 from app.utils.response import base_response
+from datetime import datetime, time
 
 router = APIRouter()
 
+# --- ENDPOINT: MENDAPATKAN SHIFT SAAT INI ---
+@router.get("/current-shift")
+async def get_current_shift():
+    """
+    Endpoint untuk menentukan shift berdasarkan waktu sekarang.
+    Shift 1: 07:00 - 15:00
+    Shift 2: 15:00 - 23:00
+    Shift 3: 23:00 - 07:00
+    """
+    current_time = datetime.now().time()
+    
+    shift_1_start = time(7, 0)   # 07:00
+    shift_1_end = time(15, 0)    # 15:00
+    shift_2_start = time(15, 0)  # 15:00
+    shift_2_end = time(23, 0)    # 23:00
+    
+    if shift_1_start <= current_time < shift_1_end:
+        shift_num = 1
+        shift = "shift_1"
+        shift_name = "Shift 1"
+        time_range = "07:00 - 15:00"
+        tolerance_start = "06:30"
+    elif shift_2_start <= current_time < shift_2_end:
+        shift_num = 2
+        shift = "shift_2"
+        shift_name = "Shift 2"
+        time_range = "15:00 - 23:00"
+        tolerance_start = "14:30"
+    else:
+        shift_num = 3
+        shift = "shift_3"
+        shift_name = "Shift 3"
+        time_range = "23:00 - 07:00"
+        tolerance_start = "22:30"
+    
+    return base_response(
+        message="Shift saat ini berhasil dideteksi",
+        payload={
+            "current_shift": shift_num,
+            "current_time": current_time.strftime("%H:%M:%S"),
+            "shift_info": {
+                "name": shift_name,
+                "time_range": time_range,
+                "tolerance_start": tolerance_start
+            }
+        }
+    )
+
 # --- ENDPOINT BARU: TAMBAH PERTANYAAN DARI FE ---
+
+@router.get("/checklist-items")
+async def get_all_checklist_items(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint untuk mendapatkan semua checklist items (pertanyaan P2H).
+    Digunakan oleh frontend untuk filter berdasarkan vehicle_tags.
+    """
+    items = db.query(ChecklistTemplate).filter(
+        ChecklistTemplate.is_active == True
+    ).order_by(ChecklistTemplate.item_order).all()
+    
+    payload = [ChecklistItemResponse.model_validate(item).model_dump(mode='json') for item in items]
+    
+    return base_response(
+        message="Semua checklist items berhasil diambil",
+        payload=payload
+    )
 
 @router.post("/checklist", status_code=status.HTTP_201_CREATED)
 async def add_checklist_item(
@@ -74,7 +143,7 @@ async def get_checklist(
         ChecklistTemplate.item_order
     ).all()
     
-    payload = [ChecklistItemResponse.model_validate(item).model_dump() for item in checklist_items]
+    payload = [ChecklistItemResponse.model_validate(item).model_dump(mode='json') for item in checklist_items]
     
     return base_response(
         message=f"Checklist untuk tipe {vehicle_type} berhasil diambil",
@@ -105,7 +174,7 @@ async def submit_p2h(
     try:
         report = await p2h_service.submit_p2h(db, current_user, submission)
         db.refresh(report)
-        payload = P2HReportResponse.model_validate(report).model_dump()
+        payload = P2HReportResponse.model_validate(report).model_dump(mode='json')
         return base_response(
             message="Laporan P2H berhasil disubmit",
             payload=payload,
@@ -127,7 +196,8 @@ async def get_p2h_reports(
         P2HReport.submission_time.desc()
     ).offset(skip).limit(limit).all()
     
-    payload = [P2HReportListResponse.model_validate(r).model_dump() for r in reports]
+    # mode='json' converts UUID to string automatically
+    payload = [P2HReportListResponse.model_validate(r).model_dump(mode='json') for r in reports]
     return base_response(message="Daftar laporan P2H berhasil diambil", payload=payload)
 
 @router.get("/reports/{report_id}")
@@ -141,5 +211,5 @@ async def get_p2h_report(
     if not report:
         raise HTTPException(status_code=404, detail="Laporan P2H tidak ditemukan")
     
-    payload = P2HReportResponse.model_validate(report).model_dump()
+    payload = P2HReportResponse.model_validate(report).model_dump(mode='json')
     return base_response(message="Detail laporan P2H berhasil ditemukan", payload=payload)

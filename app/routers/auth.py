@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.config import settings
 from app.schemas.user import UserResponse
 from app.services.auth_service import auth_service
 from app.utils.jwt import create_access_token
@@ -58,7 +59,7 @@ async def login(
         httponly=True,           # WAJIB: Mencegah akses JavaScript ke cookie
         max_age=3600,            # Berlaku selama 1 jam (3600 detik)
         samesite="lax",          # Mencegah pengiriman cookie pada Cross-Site Request yang berisiko
-        secure=False             # Set ke True jika Anda menggunakan HTTPS (Produksi)
+        secure=True              # Set True untuk menghindari security warning
     )
 
     return response
@@ -71,7 +72,7 @@ async def get_current_user_info(
     Endpoint Me: Mengambil profil user yang sedang aktif.
     Bergantung pada validasi token (baik dari Header maupun Cookie).
     """
-    user_data = UserResponse.model_validate(current_user).model_dump()
+    user_data = UserResponse.model_validate(current_user).model_dump(mode='json')
     
     return base_response(
         message="Data profil berhasil diambil", 

@@ -29,14 +29,19 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     TIMEZONE: str = "Asia/Makassar" # WITA - Sesuai lokasi Bontang
     
-    # CORS - Diperbarui agar lebih aman & lengkap
-    # Pastikan di .env nilai ini juga diupdate
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # CORS - Support both JSON array and comma-separated string
+    CORS_ORIGINS: str = '["http://localhost:5173","http://127.0.0.1:5173"]'
     
     @property
     def cors_origins_list(self) -> List[str]:
-        """Mengonversi string CORS_ORIGINS menjadi list untuk Middleware"""
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+        """Parse CORS_ORIGINS from JSON array or comma-separated string"""
+        import json
+        try:
+            # Try parsing as JSON array first
+            return json.loads(self.CORS_ORIGINS)
+        except (json.JSONDecodeError, TypeError):
+            # Fallback to comma-separated string
+            return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
     # Environment
     ENVIRONMENT: str = "development"

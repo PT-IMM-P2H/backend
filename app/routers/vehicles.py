@@ -84,7 +84,7 @@ async def create_vehicle(
     
     return base_response(
         message="Data kendaraan berhasil ditambahkan",
-        payload=VehicleResponse.model_validate(vehicle).model_dump(),
+        payload=VehicleResponse.model_validate(vehicle).model_dump(mode='json'),
         status_code=status.HTTP_201_CREATED
     )
 
@@ -194,7 +194,7 @@ async def update_vehicle(
     
     return base_response(
         message="Data kendaraan berhasil diperbarui",
-        payload=VehicleResponse.model_validate(vehicle).model_dump()
+        payload=VehicleResponse.model_validate(vehicle).model_dump(mode='json')
     )
 
 
