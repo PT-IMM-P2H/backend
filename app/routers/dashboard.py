@@ -1,16 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract, and_
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
-import calendar
+from datetime import datetime
+from typing import Optional
 
 from app.database import get_db
-from app.models.p2h import P2HReport
-from app.models.vehicle import Vehicle
 from app.models.user import User
 from app.dependencies import get_current_user
 from app.utils.response import base_response
+from app.repositories.dashboard_repository import dashboard_repository
+from app.repositories.vehicle_repository import vehicle_repository
+from app.repositories.p2h_repository import p2h_repository
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -25,54 +24,48 @@ async def get_dashboard_statistics(
     """
     Get dashboard statistics including total vehicles, P2H reports by status, etc.
     Optional date filtering with start_date and end_date (format: YYYY-MM-DD).
+    
+    IMPROVED: Following Repository Pattern
+    - Controller handles validation & parsing (string to date)
+    - Repository receives clean, typed parameters (date objects)
+    - No conditional logic in repository
     """
     
-    # Total vehicles (tidak terpengaruh filter tanggal)
-    total_vehicles = db.query(func.count(Vehicle.id)).scalar()
+    # Parse & validate date parameters in controller
+    start_dt = None
+    end_dt = None
     
-    # Build base query untuk P2H reports
-    base_query = db.query(P2HReport)
-    
-    # Apply date filters if provided
     if start_date:
         try:
             start_dt = datetime.fromisoformat(start_date).date()
-            base_query = base_query.filter(func.date(P2HReport.submission_date) >= start_dt)
         except ValueError:
-            pass  # Ignore invalid date format
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid start_date format: {start_date}. Expected YYYY-MM-DD"
+            )
     
     if end_date:
         try:
             end_dt = datetime.fromisoformat(end_date).date()
-            base_query = base_query.filter(func.date(P2HReport.submission_date) <= end_dt)
         except ValueError:
-            pass  # Ignore invalid date format
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid end_date format: {end_date}. Expected YYYY-MM-DD"
+            )
     
-    # P2H Report statistics by status
-    total_normal = base_query.filter(P2HReport.overall_status == 'normal').count() or 0
-    total_abnormal = base_query.filter(P2HReport.overall_status == 'abnormal').count() or 0
-    total_warning = base_query.filter(P2HReport.overall_status == 'warning').count() or 0
+    # Get statistics from repository with clean, typed parameters
+    stats = dashboard_repository.get_statistics(db, start_dt, end_dt)
     
-    # Total P2H reports
-    total_completed_p2h = base_query.count() or 0
-    
-    # Pending P2H (kendaraan yang belum ada laporan hari ini)
+    # Calculate pending P2H (business logic in controller)
     today = datetime.now().date()
-    vehicles_reported_today = db.query(func.count(func.distinct(P2HReport.vehicle_id))).filter(
-        func.date(P2HReport.submission_date) == today
-    ).scalar() or 0
-    
-    total_pending_p2h = total_vehicles - vehicles_reported_today
+    vehicles_reported_today = p2h_repository.get_vehicles_reported_on_date(db, today)
+    total_pending_p2h = max(stats["total_vehicles"] - vehicles_reported_today, 0)
     
     return base_response(
         message="Statistik dashboard berhasil diambil",
         payload={
-            "total_vehicles": total_vehicles or 0,
-            "total_normal": total_normal,
-            "total_abnormal": total_abnormal,
-            "total_warning": total_warning,
-            "total_completed_p2h": total_completed_p2h,
-            "total_pending_p2h": max(total_pending_p2h, 0),
+            **stats,
+            "total_pending_p2h": total_pending_p2h,
             "filters": {
                 "start_date": start_date,
                 "end_date": end_date
@@ -91,42 +84,26 @@ async def get_monthly_reports(
     """
     Get monthly P2H reports grouped by status (normal, abnormal, warning).
     Returns data for each month in the specified year.
+    
+    IMPROVED: Following Repository Pattern
+    - Controller handles business logic (default year)
+    - Repository receives clean, typed parameters
     """
     
-    # Default to current year if not specified
+    # Business logic: default to current year
     if year is None:
         year = datetime.now().year
     
-    # Initialize monthly data structure
-    monthly_data = {}
-    
-    # Get Indonesian month names
-    month_names = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ]
-    
-    for month_num in range(1, 13):
-        month_name = month_names[month_num - 1]
-        
-        # Base query
-        base_query = db.query(P2HReport).filter(
-            extract('year', P2HReport.submission_date) == year,
-            extract('month', P2HReport.submission_date) == month_num
+    # Validate year range
+    current_year = datetime.now().year
+    if year < 2020 or year > current_year + 5:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid year: {year}. Must be between 2020 and {current_year + 5}"
         )
-        
-        # Apply vehicle type filter if specified
-        if vehicle_type and vehicle_type != "":
-            base_query = base_query.join(Vehicle).filter(
-                Vehicle.vehicle_type == vehicle_type
-            )
-        
-        # Count by status
-        normal_count = base_query.filter(P2HReport.overall_status == 'normal').count()
-        abnormal_count = base_query.filter(P2HReport.overall_status == 'abnormal').count()
-        warning_count = base_query.filter(P2HReport.overall_status == 'warning').count()
-        
-        monthly_data[month_name] = [normal_count, abnormal_count, warning_count]
+    
+    # Get monthly data from repository with clean parameters
+    monthly_data = dashboard_repository.get_monthly_reports(db, year, vehicle_type)
     
     return base_response(
         message="Data bulanan berhasil diambil",
@@ -145,12 +122,18 @@ async def get_vehicle_types(
 ):
     """
     Get list of unique vehicle types from vehicles table.
+    
+    IMPROVED: Using repository pattern
     """
     
-    vehicle_types = db.query(Vehicle.vehicle_type).distinct().all()
+    # Get data from repository
+    vehicle_types = dashboard_repository.get_vehicle_types(db)
     
-    # Extract values from tuples and convert enum to string
-    vehicle_type_list = [vt[0].value if hasattr(vt[0], 'value') else str(vt[0]) for vt in vehicle_types if vt[0]]
+    # Business logic: extract enum values and sort
+    vehicle_type_list = [
+        vt.value if hasattr(vt, 'value') else str(vt) 
+        for vt in vehicle_types
+    ]
     
     return base_response(
         message="Tipe kendaraan berhasil diambil",
@@ -163,34 +146,62 @@ async def get_vehicle_types(
 @router.get("/vehicle-type-status")
 async def get_vehicle_type_status(
     vehicle_type: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Get P2H status statistics (normal, abnormal, warning) for a specific vehicle type.
+    
+    IMPROVED: Following Repository Pattern
+    - Controller validates required parameters
+    - Repository receives clean, typed parameters
     """
     
+    # Validate required parameter
     if not vehicle_type:
-        raise HTTPException(status_code=400, detail="vehicle_type parameter is required")
+        raise HTTPException(
+            status_code=400,
+            detail="vehicle_type parameter is required"
+        )
     
-    # Base query for the specific vehicle type
-    base_query = db.query(P2HReport).join(Vehicle).filter(
-        Vehicle.vehicle_type == vehicle_type
+    # Parse & validate date parameters
+    start_dt = None
+    end_dt = None
+    
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date).date()
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid start_date format: {start_date}"
+            )
+    
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date).date()
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid end_date format: {end_date}"
+            )
+    
+    # Get data from repository with clean parameters
+    status_counts = dashboard_repository.get_vehicle_type_status(
+        db, vehicle_type, start_dt, end_dt
     )
     
-    # Count by status
-    normal_count = base_query.filter(P2HReport.overall_status == 'normal').count()
-    abnormal_count = base_query.filter(P2HReport.overall_status == 'abnormal').count()
-    warning_count = base_query.filter(P2HReport.overall_status == 'warning').count()
+    # Calculate total (business logic)
+    total = sum(status_counts.values())
     
     return base_response(
         message=f"Status untuk tipe kendaraan {vehicle_type} berhasil diambil",
         payload={
             "vehicle_type": vehicle_type,
-            "normal": normal_count,
-            "abnormal": abnormal_count,
-            "warning": warning_count,
-            "total": normal_count + abnormal_count + warning_count
+            **status_counts,
+            "total": total
         }
     )
 
@@ -205,12 +216,14 @@ async def get_recent_reports(
     Get recent P2H reports with vehicle and user information.
     """
     
+    from app.models.p2h import P2HReport
+    
     reports = db.query(P2HReport).order_by(
         P2HReport.submission_date.desc(),
         P2HReport.submission_time.desc()
     ).limit(limit).all()
     
-    return {
+    report_data = {
         "reports": [
             {
                 "id": str(report.id),
