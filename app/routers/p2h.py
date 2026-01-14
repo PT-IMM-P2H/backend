@@ -91,6 +91,38 @@ async def get_all_checklist_items(
         payload=payload
     )
 
+@router.post("/checklist-items", status_code=status.HTTP_201_CREATED)
+async def add_checklist_item_to_items(
+    item_data: ChecklistItemCreate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Endpoint untuk menambah pertanyaan baru langsung dari UI Front-End.
+    Mendukung sistem tagging vehicle_tags dan applicable_shifts.
+    """
+    new_item = ChecklistTemplate(
+        item_name=item_data.question_text,  # Mapping ke kolom item_name di DB
+        section_name=item_data.section_name,
+        vehicle_tags=item_data.vehicle_tags,      # Simpan list tipe kendaraan
+        applicable_shifts=item_data.applicable_shifts, # Simpan list shift
+        options=item_data.options,
+        item_order=item_data.item_order,
+        is_active=True
+    )
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    
+    return base_response(
+        message="Pertanyaan baru berhasil ditambahkan ke database",
+        payload={
+            "id": str(new_item.id),
+            "question_text": new_item.item_name,
+            "vehicle_tags": new_item.vehicle_tags
+        }
+    )
+
 @router.get("/checklist")
 async def get_checklist_all(
     db: Session = Depends(get_db),
@@ -146,7 +178,111 @@ async def add_checklist_item(
         }
     )
 
-# --- ENDPOINT EKSISTING (TIDAK DIHAPUS) ---
+@router.delete("/checklist-items/{checklist_id}", status_code=status.HTTP_200_OK)
+async def delete_checklist_item(
+    checklist_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Endpoint untuk menghapus (soft delete) pertanyaan dari UI Front-End.
+    """
+    item = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == checklist_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
+    
+    # Soft delete - set is_active to False
+    item.is_active = False
+    db.commit()
+    
+    return base_response(
+        message="Pertanyaan berhasil dihapus",
+        payload={"id": str(item.id)}
+    )
+
+@router.delete("/checklist/{checklist_id}", status_code=status.HTTP_200_OK)
+async def delete_checklist_item_alt(
+    checklist_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Alias endpoint untuk DELETE /checklist-items/{id}.
+    """
+    item = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == checklist_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
+    
+    # Soft delete - set is_active to False
+    item.is_active = False
+    db.commit()
+    
+    return base_response(
+        message="Pertanyaan berhasil dihapus",
+        payload={"id": str(item.id)}
+    )
+
+@router.put("/checklist-items/{checklist_id}", status_code=status.HTTP_200_OK)
+async def update_checklist_item(
+    checklist_id: UUID,
+    item_data: ChecklistItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Endpoint untuk mengupdate pertanyaan yang sudah ada.
+    """
+    item = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == checklist_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
+    
+    # Update fields
+    item.item_name = item_data.question_text
+    item.section_name = item_data.section_name
+    item.vehicle_tags = item_data.vehicle_tags
+    item.applicable_shifts = item_data.applicable_shifts
+    item.options = item_data.options
+    item.item_order = item_data.item_order
+    
+    db.commit()
+    db.refresh(item)
+    
+    payload = ChecklistItemResponse.model_validate(item).model_dump(mode='json')
+    return base_response(
+        message="Pertanyaan berhasil diupdate",
+        payload=payload
+    )
+
+@router.put("/checklist/{checklist_id}", status_code=status.HTTP_200_OK)
+async def update_checklist_item_alt(
+    checklist_id: UUID,
+    item_data: ChecklistItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Alias endpoint untuk PUT /checklist-items/{id}.
+    """
+    item = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == checklist_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
+    
+    # Update fields
+    item.item_name = item_data.question_text
+    item.section_name = item_data.section_name
+    item.vehicle_tags = item_data.vehicle_tags
+    item.applicable_shifts = item_data.applicable_shifts
+    item.options = item_data.options
+    item.item_order = item_data.item_order
+    
+    db.commit()
+    db.refresh(item)
+    
+    payload = ChecklistItemResponse.model_validate(item).model_dump(mode='json')
+    return base_response(
+        message="Pertanyaan berhasil diupdate",
+        payload=payload
+    )
 
 @router.get("/checklist/{vehicle_type}")
 async def get_checklist(

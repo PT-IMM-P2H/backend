@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, AliasChoices
 from datetime import date, time, datetime
 from typing import Optional, List
 from uuid import UUID
@@ -11,12 +11,32 @@ from app.models.vehicle import VehicleType
 
 class ChecklistItemCreate(BaseModel):
     """Schema baru untuk menambah pertanyaan dari Front-End (Modal Tambah Pertanyaan)"""
-    question_text: str = Field(..., min_length=3, description="Isi teks pertanyaan")
-    section_name: str = Field(..., description="Kategori pertanyaan (e.g., REM, RODA)")
-    vehicle_tags: List[str] = Field(..., description="Daftar tipe kendaraan (e.g., ['LV', 'Bus'])")
-    applicable_shifts: List[str] = Field(..., description="Shift berlakunya pertanyaan")
-    options: List[str] = Field(default=["Baik", "Abnormal"], description="Pilihan jawaban")
-    item_order: int = Field(..., ge=1)
+    model_config = ConfigDict(populate_by_name=True)
+    
+    question_text: str = Field(
+        ..., 
+        min_length=3, 
+        description="Isi teks pertanyaan",
+        validation_alias=AliasChoices('question_text', 'text', 'item_name', 'pertanyaan')
+    )
+    section_name: str = Field(
+        ..., 
+        description="Kategori pertanyaan (e.g., REM, RODA)",
+        validation_alias=AliasChoices('section_name', 'section', 'category', 'kategori')
+    )
+    vehicle_tags: List[str] = Field(
+        default=[], 
+        description="Daftar tipe kendaraan (e.g., ['LV', 'Bus'])"
+    )
+    applicable_shifts: List[str] = Field(
+        default=[], 
+        description="Shift berlakunya pertanyaan"
+    )
+    options: List[str] = Field(
+        default=["Baik", "Abnormal"], 
+        description="Pilihan jawaban"
+    )
+    item_order: int = Field(default=1, ge=1)
 
 class ChecklistItemResponse(BaseModel):
     """Schema for checklist item response - Diperbarui untuk mendukung Tagging"""

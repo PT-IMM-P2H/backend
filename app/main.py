@@ -117,12 +117,14 @@ app.include_router(dashboard.router, tags=["Dashboard"])
 
 # Alias: Tambahkan route /checklist tanpa prefix untuk kompatibilitas frontend
 from sqlalchemy.orm import Session
+from uuid import UUID
 from app.database import get_db
 from app.models.user import User
 from app.models.checklist import ChecklistTemplate
-from app.schemas.p2h import ChecklistItemResponse
-from app.dependencies import get_current_user
-from fastapi import Depends
+from app.schemas.p2h import ChecklistItemResponse, ChecklistItemCreate
+from app.dependencies import get_current_user, require_role
+from app.models.user import UserRole
+from fastapi import Depends, HTTPException
 
 @app.get("/checklist", tags=["P2H Inspection"])
 async def get_checklist_alias(
@@ -144,6 +146,94 @@ async def get_checklist_alias(
     
     return base_response(
         message="Semua checklist items berhasil diambil",
+        payload=payload
+    )
+
+@app.post("/checklist", status_code=status.HTTP_201_CREATED, tags=["P2H Inspection"])
+async def post_checklist_alias(
+    item_data: ChecklistItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Alias endpoint untuk POST /p2h/checklist.
+    Menambah pertanyaan baru langsung dari UI Front-End.
+    """
+    new_item = ChecklistTemplate(
+        item_name=item_data.question_text,
+        section_name=item_data.section_name,
+        vehicle_tags=item_data.vehicle_tags,
+        applicable_shifts=item_data.applicable_shifts,
+        options=item_data.options,
+        item_order=item_data.item_order,
+        is_active=True
+    )
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    
+    return base_response(
+        message="Pertanyaan baru berhasil ditambahkan ke database",
+        payload={
+            "id": str(new_item.id),
+            "question_text": new_item.item_name,
+            "vehicle_tags": new_item.vehicle_tags
+        },
+        status_code=201
+    )
+
+@app.delete("/checklist/{checklist_id}", status_code=status.HTTP_200_OK, tags=["P2H Inspection"])
+async def delete_checklist_alias(
+    checklist_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Alias endpoint untuk DELETE /p2h/checklist/{id}.
+    Menghapus (soft delete) pertanyaan.
+    """
+    item = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == checklist_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
+    
+    # Soft delete - set is_active to False
+    item.is_active = False
+    db.commit()
+    
+    return base_response(
+        message="Pertanyaan berhasil dihapus",
+        payload={"id": str(item.id)}
+    )
+
+@app.put("/checklist/{checklist_id}", status_code=status.HTTP_200_OK, tags=["P2H Inspection"])
+async def update_checklist_alias(
+    checklist_id: UUID,
+    item_data: ChecklistItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Alias endpoint untuk PUT /p2h/checklist/{id}.
+    Mengupdate pertanyaan yang sudah ada.
+    """
+    item = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == checklist_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
+    
+    # Update fields
+    item.item_name = item_data.question_text
+    item.section_name = item_data.section_name
+    item.vehicle_tags = item_data.vehicle_tags
+    item.applicable_shifts = item_data.applicable_shifts
+    item.options = item_data.options
+    item.item_order = item_data.item_order
+    
+    db.commit()
+    db.refresh(item)
+    
+    payload = ChecklistItemResponse.model_validate(item).model_dump(mode='json')
+    return base_response(
+        message="Pertanyaan berhasil diupdate",
         payload=payload
     )
 
