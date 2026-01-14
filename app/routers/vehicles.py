@@ -23,8 +23,25 @@ async def get_vehicle_by_lambung(
     """
     Mencari kendaraan berdasarkan nomor lambung secara publik.
     Digunakan oleh driver untuk validasi unit sebelum mengisi form P2H.
+    Pencarian fleksibel: P.309 bisa dicari dengan p309, p-309, P309, dll
     """
-    vehicle = db.query(Vehicle).filter(Vehicle.no_lambung == no_lambung).first()
+    # Normalisasi input: hapus spasi, tanda hubung, titik dan jadikan uppercase
+    normalized_input = no_lambung.upper().replace(" ", "").replace("-", "").replace(".", "")
+    
+    # Cari semua vehicles
+    all_vehicles = db.query(Vehicle).all()
+    
+    # Filter berdasarkan matching yang fleksibel
+    vehicle = None
+    for v in all_vehicles:
+        if v.no_lambung:
+            # Normalisasi no_lambung dari database
+            normalized_db = v.no_lambung.upper().replace(" ", "").replace("-", "").replace(".", "")
+            # Check apakah normalized input cocok dengan normalized no_lambung
+            if normalized_input == normalized_db:
+                vehicle = v
+                break
+    
     if not vehicle:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

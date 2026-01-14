@@ -360,23 +360,34 @@ async def update_checklist_item_alt(
 
 @router.get("/checklist/{vehicle_type}")
 async def get_checklist(
-    vehicle_type: str, # Menggunakan str agar bisa fleksibel dengan tagging
+    vehicle_type: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get checklist items yang ter-tag untuk tipe kendaraan tertentu.
-    """
-    # Mencari item yang kolom vehicle_tags-nya mengandung vehicle_type
-    checklist_items = db.query(ChecklistTemplate).filter(
-        ChecklistTemplate.vehicle_tags.any(vehicle_type),
+    # Normalisasi input: hapus spasi, tanda hubung, titik dan jadikan uppercase
+    normalized_input = vehicle_type.upper().replace(" ", "").replace("-", "").replace(".", "")
+    
+    # Ambil semua items yang aktif
+    all_items = db.query(ChecklistTemplate).filter(
         ChecklistTemplate.is_active == True
-    ).order_by(
-        ChecklistTemplate.section_name,
-        ChecklistTemplate.item_order
     ).all()
     
-    payload = [ChecklistItemResponse.model_validate(item).model_dump(mode='json') for item in checklist_items]
+    # Filter berdasarkan matching yang fleksibel
+    matched_items = []
+    for item in all_items:
+        if item.vehicle_tags:
+            for tag in item.vehicle_tags:
+                # Normalisasi tag dari database dengan cara yang sama
+                normalized_tag = tag.upper().replace(" ", "").replace("-", "").replace(".", "")
+                # Check apakah normalized input cocok dengan normalized tag
+                if normalized_input == normalized_tag or normalized_input in normalized_tag or normalized_tag in normalized_input:
+                    matched_items.append(item)
+                    break  # Jangan tambahkan item dua kali untuk tag yang sama
+    
+    # Sort hasil
+    matched_items.sort(key=lambda x: (x.section_name, x.item_order))
+    
+    payload = [ChecklistItemResponse.model_validate(item).model_dump(mode='json') for item in matched_items]
     
     return base_response(
         message=f"Checklist untuk tipe {vehicle_type} berhasil diambil",
