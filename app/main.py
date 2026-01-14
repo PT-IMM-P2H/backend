@@ -115,6 +115,38 @@ app.include_router(p2h.router, prefix="/p2h", tags=["P2H Inspection"])
 app.include_router(master_data.router, prefix="/master-data", tags=["Master Data"])
 app.include_router(dashboard.router, tags=["Dashboard"])
 
+# Alias: Tambahkan route /checklist tanpa prefix untuk kompatibilitas frontend
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.user import User
+from app.models.checklist import ChecklistTemplate
+from app.schemas.p2h import ChecklistItemResponse
+from app.dependencies import get_current_user
+from fastapi import Depends
+
+@app.get("/checklist", tags=["P2H Inspection"])
+async def get_checklist_alias(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Alias endpoint untuk /p2h/checklist.
+    Mendapatkan semua checklist items yang aktif.
+    """
+    items = db.query(ChecklistTemplate).filter(
+        ChecklistTemplate.is_active == True
+    ).order_by(
+        ChecklistTemplate.section_name,
+        ChecklistTemplate.item_order
+    ).all()
+    
+    payload = [ChecklistItemResponse.model_validate(item).model_dump(mode='json') for item in items]
+    
+    return base_response(
+        message="Semua checklist items berhasil diambil",
+        payload=payload
+    )
+
 if __name__ == "__main__":
     import uvicorn
     # Port 8000 sebagai default aplikasi

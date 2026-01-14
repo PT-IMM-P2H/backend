@@ -91,6 +91,29 @@ async def get_all_checklist_items(
         payload=payload
     )
 
+@router.get("/checklist")
+async def get_checklist_all(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint untuk mendapatkan semua checklist items yang aktif.
+    Digunakan oleh frontend untuk menampilkan pertanyaan-pertanyaan yang tersedia.
+    """
+    items = db.query(ChecklistTemplate).filter(
+        ChecklistTemplate.is_active == True
+    ).order_by(
+        ChecklistTemplate.section_name,
+        ChecklistTemplate.item_order
+    ).all()
+    
+    payload = [ChecklistItemResponse.model_validate(item).model_dump(mode='json') for item in items]
+    
+    return base_response(
+        message="Semua checklist items berhasil diambil",
+        payload=payload
+    )
+
 @router.post("/checklist", status_code=status.HTTP_201_CREATED)
 async def add_checklist_item(
     item_data: ChecklistItemCreate, 

@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     TIMEZONE: str = "Asia/Makassar" # WITA - Sesuai lokasi Bontang
     
     # CORS - Support both JSON array and comma-separated string
-    CORS_ORIGINS: str = '["http://localhost:5173","http://127.0.0.1:5173"]'
+    CORS_ORIGINS: str = '["http://localhost:5173","http://127.0.0.1:5173","http://localhost:8000","http://127.0.0.1:8000"]'
     
     @property
     def cors_origins_list(self) -> List[str]:
