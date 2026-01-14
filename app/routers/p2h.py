@@ -123,6 +123,80 @@ async def add_checklist_item(
         }
     )
 
+
+@router.put("/checklist/{checklist_id}")
+async def update_checklist_item(
+    checklist_id: UUID,
+    item_data: ChecklistItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Endpoint untuk update checklist item yang sudah ada.
+    """
+    # Cari checklist item berdasarkan ID
+    item = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == checklist_id).first()
+    
+    if not item:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Checklist item dengan ID {checklist_id} tidak ditemukan"
+        )
+    
+    # Update fields
+    item.item_name = item_data.question_text
+    item.section_name = item_data.section_name
+    item.vehicle_tags = item_data.vehicle_tags
+    item.applicable_shifts = item_data.applicable_shifts
+    item.options = item_data.options
+    item.item_order = item_data.item_order
+    
+    db.commit()
+    db.refresh(item)
+    
+    return base_response(
+        message="Checklist item berhasil diupdate",
+        payload={
+            "id": str(item.id),
+            "question_text": item.item_name,
+            "vehicle_tags": item.vehicle_tags
+        }
+    )
+
+
+@router.delete("/checklist/{checklist_id}")
+async def delete_checklist_item(
+    checklist_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.superadmin, UserRole.admin))
+):
+    """
+    Endpoint untuk menghapus (soft delete) checklist item.
+    """
+    # Cari checklist item berdasarkan ID
+    item = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == checklist_id).first()
+    
+    if not item:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Checklist item dengan ID {checklist_id} tidak ditemukan"
+        )
+    
+    # Soft delete: set is_active = False
+    item.is_active = False
+    
+    db.commit()
+    
+    return base_response(
+        message="Checklist item berhasil dihapus",
+        payload={
+            "id": str(item.id),
+            "question_text": item.item_name,
+            "deleted": True
+        }
+    )
+
+
 # --- ENDPOINT EKSISTING (TIDAK DIHAPUS) ---
 
 @router.get("/checklist/{vehicle_type}")
