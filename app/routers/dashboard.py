@@ -17,32 +17,44 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 @router.get("/statistics")
 async def get_dashboard_statistics(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Get dashboard statistics including total vehicles, P2H reports by status, etc.
+    Optional date filtering with start_date and end_date (format: YYYY-MM-DD).
     """
     
-    # Total vehicles
+    # Total vehicles (tidak terpengaruh filter tanggal)
     total_vehicles = db.query(func.count(Vehicle.id)).scalar()
     
-    # P2H Report statistics
-    # Total reports by status
-    total_normal = db.query(func.count(P2HReport.id)).filter(
-        P2HReport.overall_status == 'normal'
-    ).scalar() or 0
+    # Build base query untuk P2H reports
+    base_query = db.query(P2HReport)
     
-    total_abnormal = db.query(func.count(P2HReport.id)).filter(
-        P2HReport.overall_status == 'abnormal'
-    ).scalar() or 0
+    # Apply date filters if provided
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date).date()
+            base_query = base_query.filter(func.date(P2HReport.submission_date) >= start_dt)
+        except ValueError:
+            pass  # Ignore invalid date format
     
-    total_warning = db.query(func.count(P2HReport.id)).filter(
-        P2HReport.overall_status == 'warning'
-    ).scalar() or 0
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date).date()
+            base_query = base_query.filter(func.date(P2HReport.submission_date) <= end_dt)
+        except ValueError:
+            pass  # Ignore invalid date format
+    
+    # P2H Report statistics by status
+    total_normal = base_query.filter(P2HReport.overall_status == 'normal').count() or 0
+    total_abnormal = base_query.filter(P2HReport.overall_status == 'abnormal').count() or 0
+    total_warning = base_query.filter(P2HReport.overall_status == 'warning').count() or 0
     
     # Total P2H reports
-    total_completed_p2h = db.query(func.count(P2HReport.id)).scalar() or 0
+    total_completed_p2h = base_query.count() or 0
     
     # Pending P2H (kendaraan yang belum ada laporan hari ini)
     today = datetime.now().date()
@@ -60,7 +72,11 @@ async def get_dashboard_statistics(
             "total_abnormal": total_abnormal,
             "total_warning": total_warning,
             "total_completed_p2h": total_completed_p2h,
-            "total_pending_p2h": max(total_pending_p2h, 0)
+            "total_pending_p2h": max(total_pending_p2h, 0),
+            "filters": {
+                "start_date": start_date,
+                "end_date": end_date
+            }
         }
     )
 
@@ -140,6 +156,41 @@ async def get_vehicle_types(
         message="Tipe kendaraan berhasil diambil",
         payload={
             "vehicle_types": sorted(vehicle_type_list)
+        }
+    )
+
+
+@router.get("/vehicle-type-status")
+async def get_vehicle_type_status(
+    vehicle_type: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get P2H status statistics (normal, abnormal, warning) for a specific vehicle type.
+    """
+    
+    if not vehicle_type:
+        raise HTTPException(status_code=400, detail="vehicle_type parameter is required")
+    
+    # Base query for the specific vehicle type
+    base_query = db.query(P2HReport).join(Vehicle).filter(
+        Vehicle.vehicle_type == vehicle_type
+    )
+    
+    # Count by status
+    normal_count = base_query.filter(P2HReport.overall_status == 'normal').count()
+    abnormal_count = base_query.filter(P2HReport.overall_status == 'abnormal').count()
+    warning_count = base_query.filter(P2HReport.overall_status == 'warning').count()
+    
+    return base_response(
+        message=f"Status untuk tipe kendaraan {vehicle_type} berhasil diambil",
+        payload={
+            "vehicle_type": vehicle_type,
+            "normal": normal_count,
+            "abnormal": abnormal_count,
+            "warning": warning_count,
+            "total": normal_count + abnormal_count + warning_count
         }
     )
 
