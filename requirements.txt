@@ -1,38 +1,19 @@
-# FastAPI & Web Server
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-multipart==0.0.6
-
-# Database
-sqlalchemy==2.0.25
-alembic==1.13.1
-psycopg2-binary==2.9.9
-
-# Authentication & Security
-python-jose[cryptography]==3.3.0
-passlib==1.7.4
-argon2-cffi==23.1.0
-python-dotenv==1.0.0
-
-# Pydantic Settings
-pydantic==2.5.3
-pydantic-settings==2.1.0
-
-# Telegram Bot
-aiogram==3.3.0
-
-# Scheduler
-apscheduler==3.10.4
-
-# Excel Processing
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+alembic
+psycopg2-binary
+python-jose[cryptography]
+passlib
+argon2-cffi
+python-dotenv
+pydantic
+pydantic-settings
+aiogram
+apscheduler
 pandas
-openpyxl==3.1.2
-
-# Timezone
-pytz==2023.3
-
-# HTTP Client (for Telegram webhook)
-httpx==0.26.0
-
-# UUID
-uuid7==0.1.0
+openpyxl
+pytz
+httpx
+uuid7
