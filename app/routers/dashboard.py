@@ -7,9 +7,7 @@ from app.database import get_db
 from app.models.user import User
 from app.dependencies import get_current_user
 from app.utils.response import base_response
-from app.repositories.dashboard_repository import dashboard_repository
-from app.repositories.vehicle_repository import vehicle_repository
-from app.repositories.p2h_repository import p2h_repository
+from app.services.dashboard_service import dashboard_service
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -25,13 +23,13 @@ async def get_dashboard_statistics(
     Get dashboard statistics including total vehicles, P2H reports by status, etc.
     Optional date filtering with start_date and end_date (format: YYYY-MM-DD).
     
-    IMPROVED: Following Repository Pattern
-    - Controller handles validation & parsing (string to date)
-    - Repository receives clean, typed parameters (date objects)
-    - No conditional logic in repository
+    IMPROVED: Following 3-Layer Architecture
+    - Controller: HTTP logic, validation, response formatting
+    - Service: Business logic, orchestration, calculations
+    - Repository: Pure database operations
     """
     
-    # Parse & validate date parameters in controller
+    # Controller layer: Parse & validate input
     start_dt = None
     end_dt = None
     
@@ -53,19 +51,14 @@ async def get_dashboard_statistics(
                 detail=f"Invalid end_date format: {end_date}. Expected YYYY-MM-DD"
             )
     
-    # Get statistics from repository with clean, typed parameters
-    stats = dashboard_repository.get_statistics(db, start_dt, end_dt)
+    # Service layer: Business logic & orchestration
+    stats = dashboard_service.get_dashboard_statistics(db, start_dt, end_dt)
     
-    # Calculate pending P2H (business logic in controller)
-    today = datetime.now().date()
-    vehicles_reported_today = p2h_repository.get_vehicles_reported_on_date(db, today)
-    total_pending_p2h = max(stats["total_vehicles"] - vehicles_reported_today, 0)
-    
+    # Controller layer: Format response
     return base_response(
         message="Statistik dashboard berhasil diambil",
         payload={
             **stats,
-            "total_pending_p2h": total_pending_p2h,
             "filters": {
                 "start_date": start_date,
                 "end_date": end_date
@@ -85,16 +78,16 @@ async def get_monthly_reports(
     Get monthly P2H reports grouped by status (normal, abnormal, warning).
     Returns data for each month in the specified year.
     
-    IMPROVED: Following Repository Pattern
-    - Controller handles business logic (default year)
-    - Repository receives clean, typed parameters
+    IMPROVED: Following 3-Layer Architecture
+    - Controller: Validation & response formatting
+    - Service: Business logic (default year, calculations)
+    - Repository: Database queries
     """
     
-    # Business logic: default to current year
+    # Controller layer: Validation
     if year is None:
         year = datetime.now().year
     
-    # Validate year range
     current_year = datetime.now().year
     if year < 2020 or year > current_year + 5:
         raise HTTPException(
@@ -102,15 +95,16 @@ async def get_monthly_reports(
             detail=f"Invalid year: {year}. Must be between 2020 and {current_year + 5}"
         )
     
-    # Get monthly data from repository with clean parameters
-    monthly_data = dashboard_repository.get_monthly_reports(db, year, vehicle_type)
+    # Service layer: Business logic & orchestration
+    result = dashboard_service.get_monthly_report_summary(db, year, vehicle_type)
     
+    # Controller layer: Format response
     return base_response(
         message="Data bulanan berhasil diambil",
         payload={
             "year": year,
             "vehicle_type": vehicle_type or "all",
-            "monthly_data": monthly_data
+            **result
         }
     )
 
