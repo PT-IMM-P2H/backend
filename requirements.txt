@@ -25,7 +25,7 @@ aiogram==3.3.0
 apscheduler==3.10.4
 
 # Excel Processing
-pandas==2.1.4
+pandas
 openpyxl==3.1.2
 
 # Timezone
