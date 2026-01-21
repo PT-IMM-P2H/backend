@@ -17,3 +17,4 @@ openpyxl
 pytz
 httpx
 uuid7
+bcrypt
