@@ -12,6 +12,19 @@ from app.utils.response import base_response
 
 router = APIRouter()
 
+@router.get("/me")
+async def get_current_user_profile(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get current logged-in user profile.
+    Accessible by all authenticated users.
+    """
+    return base_response(
+        message="Data profil berhasil diambil",
+        payload=UserResponse.model_validate(current_user).model_dump(mode='json')
+    )
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,

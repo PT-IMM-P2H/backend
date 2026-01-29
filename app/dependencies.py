@@ -98,3 +98,45 @@ def require_role(*allowed_roles: UserRole):
         return current_user
     
     return role_checker
+
+
+# Common role dependencies for convenience
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require admin or superadmin role"""
+    if current_user.role not in [UserRole.admin, UserRole.superadmin]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akses ditolak. Hanya admin yang dapat mengakses"
+        )
+    return current_user
+
+
+def require_superadmin(current_user: User = Depends(get_current_user)) -> User:
+    """Require superadmin role only"""
+    if current_user.role != UserRole.superadmin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akses ditolak. Hanya superadmin yang dapat mengakses"
+        )
+    return current_user
+
+
+# Shortcut dependencies for common role checks
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require admin or superadmin role"""
+    if current_user.role not in [UserRole.admin, UserRole.superadmin]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akses ditolak. Hanya admin yang diizinkan."
+        )
+    return current_user
+
+
+def require_superadmin(current_user: User = Depends(get_current_user)) -> User:
+    """Require superadmin role only"""
+    if current_user.role != UserRole.superadmin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akses ditolak. Hanya superadmin yang diizinkan."
+        )
+    return current_user

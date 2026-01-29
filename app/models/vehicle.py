@@ -22,8 +22,10 @@ class VehicleType(enum.Enum):
 
     
 class ShiftType(enum.Enum):
-    SHIFT = "shift"
-    NON_SHIFT = "non_shift"
+    """Tipe shift kendaraan berdasarkan warna nomor lambung"""
+    SHIFT = "shift"              # Kuning - 3x sehari, reset jam 05:00
+    NON_SHIFT = "non_shift"      # Hijau & Biru - 1x sehari, reset jam 00:00
+    LONG_SHIFT = "long_shift"    # Long Shift - 2x sehari, reset jam 05:00
 
 class UnitKategori(enum.Enum):
     IMM = "IMM"
@@ -31,11 +33,13 @@ class UnitKategori(enum.Enum):
 
 class Vehicle(Base):
     __tablename__ = "vehicles"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     no_lambung = Column(String(50), unique=True, nullable=True, index=True)
     warna_no_lambung = Column(String(20), nullable=True)
     plat_nomor = Column(String(20), nullable=False, index=True)
+    lokasi_kendaraan = Column(String(100), nullable=True)
     vehicle_type = Column(SQLEnum(VehicleType, values_callable=lambda x: [e.value for e in x]), nullable=False)
     merk = Column(String(100), nullable=True)
     

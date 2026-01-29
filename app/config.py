@@ -1,24 +1,27 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 from pathlib import Path
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = BASE_DIR / ".env"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(ENV_FILE),
+        # Don't load .env file if running on Railway
+        # Railway sets RAILWAY_ENVIRONMENT_NAME (e.g., "production")
+        env_file=".env" if os.getenv("RAILWAY_ENVIRONMENT_NAME") is None else None,
         env_file_encoding="utf-8",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
-    
-    # Database
+
+    PORT: int = 8000
+
     DATABASE_URL: str
-    
-    # JWT
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440 # 24 jam
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
@@ -42,6 +45,28 @@ class Settings(BaseSettings):
         except (json.JSONDecodeError, TypeError):
             # Fallback to comma-separated string
             return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+    
+    def is_origin_allowed(self, origin: str) -> bool:
+        """
+        Check if origin is allowed, supporting wildcard patterns.
+        Examples:
+        - https://*.vercel.app matches https://p2h-xyz.vercel.app
+        - https://*.railway.app matches any Railway deployment
+        """
+        import re
+        
+        for allowed_origin in self.cors_origins_list:
+            # Exact match
+            if allowed_origin == origin:
+                return True
+            
+            # Wildcard match (convert * to regex)
+            if "*" in allowed_origin:
+                pattern = allowed_origin.replace(".", r"\.").replace("*", ".*")
+                if re.match(f"^{pattern}$", origin):
+                    return True
+        
+        return False
     
     # Environment
     ENVIRONMENT: str = "development"

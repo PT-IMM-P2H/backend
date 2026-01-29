@@ -67,6 +67,7 @@ class P2HDetailResponse(BaseModel):
 class P2HReportSubmit(BaseModel):
     """Schema for submitting P2H report"""
     vehicle_id: UUID
+    shift_number: Optional[int] = Field(None, ge=1, le=3, description="Shift number yang dipilih user (1-3 untuk shift, 1-2 untuk long shift)")
     details: List[P2HDetailSubmit] = Field(..., min_length=1, description="At least one checklist item required")
     
     @field_validator('details')
@@ -94,7 +95,7 @@ class P2HReportResponse(BaseModel):
 
 
 class P2HReportListResponse(BaseModel):
-    """Schema for P2H report list (without details)"""
+    """Schema for P2H report list (with basic details)"""
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
@@ -105,6 +106,8 @@ class P2HReportListResponse(BaseModel):
     submission_date: date
     submission_time: time
     created_at: datetime
+    # Tambahkan details untuk menampilkan keterangan abnormal/warning
+    details: Optional[List[P2HDetailResponse]] = []
 
 
 # Import for forward references

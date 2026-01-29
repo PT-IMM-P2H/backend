@@ -5,6 +5,7 @@ from app.database import Base
 # Import semua model agar terdaftar di Base.metadata
 from app.models.user import User
 from app.models.vehicle import Vehicle
+from app.models.vehicle_type import VehicleTypeModel
 # Jika file checklist Anda bernama checklist.py dan class-nya ChecklistTemplate
 from app.models.checklist import ChecklistTemplate 
 from app.models.p2h import (

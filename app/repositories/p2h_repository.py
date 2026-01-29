@@ -26,7 +26,8 @@ class P2HRepository(BaseRepository[P2HReport]):
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         vehicle_id: Optional[UUID] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        vehicle_type: Optional[str] = None
     ) -> Query:
         """
         Get base query for P2H reports with optional filters.
@@ -37,6 +38,7 @@ class P2HRepository(BaseRepository[P2HReport]):
             end_date: Filter by submission date <= end_date (already parsed)
             vehicle_id: Filter by vehicle ID
             status: Filter by overall status
+            vehicle_type: Filter by vehicle type
             
         Returns:
             SQLAlchemy Query object
@@ -56,6 +58,10 @@ class P2HRepository(BaseRepository[P2HReport]):
         if status is not None:
             query = query.filter(P2HReport.overall_status == status)
         
+        if vehicle_type is not None:
+            from app.models.vehicle import Vehicle
+            query = query.join(Vehicle).filter(Vehicle.vehicle_type == vehicle_type)
+        
         return query
     
     def count_by_status(
@@ -63,21 +69,23 @@ class P2HRepository(BaseRepository[P2HReport]):
         db: Session,
         status: str,
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
+        vehicle_type: Optional[str] = None
     ) -> int:
         """
-        Count P2H reports by status with optional date filters.
+        Count P2H reports by status with optional date and vehicle type filters.
         
         Args:
             db: Database session
             status: Status to count ('normal', 'abnormal', 'warning')
             start_date: Optional start date filter
             end_date: Optional end date filter
+            vehicle_type: Optional vehicle type filter
             
         Returns:
             Count of reports
         """
-        query = self.get_reports_query(db, start_date, end_date, status=status)
+        query = self.get_reports_query(db, start_date, end_date, status=status, vehicle_type=vehicle_type)
         return query.count() or 0
     
     def get_monthly_counts(

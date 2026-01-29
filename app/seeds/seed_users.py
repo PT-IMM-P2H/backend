@@ -60,7 +60,7 @@ def seed_users():
                     is_active=True
                 )
                 db.add(new_user)
-                print(f"✅ Akun {data['role'].value} baru berhasil dibuat: {data['full_name']}")
+                print(f"[OK] Akun {data['role'].value} baru berhasil dibuat: {data['full_name']}")
             else:
                 # JIKA SUDAH ADA: Update data & password
                 user.password_hash = password_hash
@@ -69,7 +69,7 @@ def seed_users():
                 user.birth_date = data["birth_date"]
                 user.role = data["role"]
                 user.kategori_pengguna = data["kategori_pengguna"]
-                print(f"🔄 Akun ditemukan, data diperbarui: {data['full_name']}")
+                print(f"[UPDATE] Akun ditemukan, data diperbarui: {data['full_name']}")
             
             print("="*50)
             print(f"User     : {data['full_name']}")
@@ -82,7 +82,7 @@ def seed_users():
             
     except Exception as e:
         db.rollback()
-        print(f"❌ Error: {str(e)}")
+        print(f"[ERROR] Error: {str(e)}")
     finally:
         db.close()
 

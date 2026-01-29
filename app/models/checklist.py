@@ -10,6 +10,7 @@ from app.models.vehicle import VehicleType
 class ChecklistTemplate(Base):
     """Checklist template model - Diperbarui tanpa menghapus kolom lama"""
     __tablename__ = "checklist_templates"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     

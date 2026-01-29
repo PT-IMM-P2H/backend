@@ -29,6 +29,7 @@ class P2HReport(Base):
     Menyimpan informasi utama siapa, kapan, dan kendaraan apa.
     """
     __tablename__ = "p2h_reports"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     vehicle_id = Column(UUID(as_uuid=True), ForeignKey("vehicles.id"), nullable=False, index=True)
@@ -60,6 +61,7 @@ class P2HDetail(Base):
     Menyimpan jawaban 'BAIK' atau 'RUSAK' untuk setiap poin pertanyaan.
     """
     __tablename__ = "p2h_details"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     report_id = Column(UUID(as_uuid=True), ForeignKey("p2h_reports.id", ondelete="CASCADE"), nullable=False)
@@ -81,6 +83,7 @@ class P2HDailyTracker(Base):
     Mencegah query berat ke p2h_reports untuk pengecekan status harian.
     """
     __tablename__ = "p2h_daily_tracker"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     vehicle_id = Column(UUID(as_uuid=True), ForeignKey("vehicles.id"), nullable=False, index=True)

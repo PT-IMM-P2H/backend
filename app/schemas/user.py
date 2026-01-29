@@ -34,7 +34,7 @@ class WorkStatusResponse(BaseModel):
 class UserBase(BaseModel):
     """Schema dasar untuk data pengguna (Tanpa Username & First Name)"""
     full_name: str = Field(..., min_length=1, max_length=100)
-    email: str = Field(..., description="Alamat email aktif")
+    email: Optional[str] = Field(None, description="Alamat email (opsional)")
     phone_number: str = Field(..., description="Nomor HP aktif (Kredensial Login)")
     birth_date: Optional[date] = None
     

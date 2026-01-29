@@ -1,5 +1,6 @@
 from typing import Optional
 import logging
+import asyncio
 from datetime import datetime
 import httpx
 from sqlalchemy.orm import Session
@@ -18,11 +19,26 @@ class TelegramService:
         self.bot_token = settings.TELEGRAM_BOT_TOKEN
         self.chat_id = settings.TELEGRAM_CHAT_ID
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
+        # Shared client dengan connection pooling untuk performa lebih baik
+        self._client = None
     
-    async def send_message(self, message: str) -> bool:
-        """Kirim pesan ke Telegram menggunakan mode HTML"""
-        try:
-            async with httpx.AsyncClient() as client:
+    def _get_client(self) -> httpx.AsyncClient:
+        """Get or create shared async client dengan connection pooling"""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=httpx.Timeout(30.0, connect=10.0),  # 30s timeout, 10s connect
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            )
+        return self._client
+    
+    async def send_message(self, message: str, max_retries: int = 3) -> bool:
+        """Kirim pesan ke Telegram dengan retry mechanism"""
+        client = self._get_client()
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"📤 Sending telegram message (attempt {attempt + 1}/{max_retries})")
+                
                 response = await client.post(
                     f"{self.base_url}/sendMessage",
                     json={
@@ -30,20 +46,44 @@ class TelegramService:
                         "text": message,
                         "parse_mode": "HTML",
                         "disable_web_page_preview": True
-                    },
-                    timeout=10.0
+                    }
                 )
                 
                 if response.status_code == 200:
-                    logger.info("✅ Telegram message sent successfully")
+                    logger.info(f"✅ Telegram message sent successfully on attempt {attempt + 1}")
                     return True
+                elif response.status_code == 400:
+                    # Bad request - tidak perlu retry
+                    logger.error(f"❌ Telegram API Bad Request: {response.text}")
+                    return False
                 else:
-                    logger.error(f"❌ Telegram API Error: {response.text}")
+                    logger.warning(f"⚠️ Telegram API returned {response.status_code}: {response.text}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s, 4s
+                        continue
                     return False
                     
-        except Exception as e:
-            logger.error(f"❌ Error connection to Telegram: {str(e)}")
-            return False
+            except httpx.TimeoutException as e:
+                logger.warning(f"⏱️ Telegram request timeout on attempt {attempt + 1}: {str(e)}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                logger.error(f"❌ All {max_retries} attempts timed out")
+                return False
+                
+            except httpx.NetworkError as e:
+                logger.warning(f"🌐 Network error on attempt {attempt + 1}: {str(e)}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                logger.error(f"❌ Network error after {max_retries} attempts")
+                return False
+                
+            except Exception as e:
+                logger.error(f"❌ Unexpected error sending telegram: {str(e)}", exc_info=True)
+                return False
+        
+        return False
     
     def format_p2h_notification(
         self,
@@ -55,7 +95,20 @@ class TelegramService:
         status_emoji = "❌" if status == InspectionStatus.ABNORMAL else "⚠️"
         status_text = "ABNORMAL (STOP OPERASI)" if status == InspectionStatus.ABNORMAL else "WARNING (PERLU PERBAIKAN)"
         
-        # Ambil list item yang abnormal jika ada (opsional, bisa dikembangkan nanti)
+        # Build detail items yang bermasalah
+        problem_items = []
+        for detail in report.details:
+            if detail.status in [InspectionStatus.ABNORMAL, InspectionStatus.WARNING]:
+                # Get checklist item name
+                item_name = detail.checklist_item.item_name if detail.checklist_item else "Item tidak diketahui"
+                item_status = "❌ ABNORMAL" if detail.status == InspectionStatus.ABNORMAL else "⚠️ WARNING"
+                keterangan = detail.keterangan or "Tidak ada keterangan"
+                
+                problem_items.append(f"• <b>{item_name}</b>\n  Status: {item_status}\n  Keterangan: {keterangan}")
+        
+        # Format list of problem items
+        items_text = "\n\n".join(problem_items) if problem_items else "Tidak ada detail item"
+        
         message = f"""
 {status_emoji} <b>P2H ALERT: {status_text}</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -71,10 +124,13 @@ class TelegramService:
 
 <b>📝 Status Akhir:</b> {status.value.upper()}
 
+<b>🔍 Item Yang Bermasalah:</b>
+{items_text}
+
 <b>⚠️ Tindakan:</b> 
 Harap segera melakukan pengecekan unit di workshop terdekat.
 ━━━━━━━━━━━━━━━━━━━━
-<i>Sistem P2H Digital PT. IMM</i>
+<i>Notifikasi Sistem P2H PT IMM</i>
         """
         return message.strip()
     
@@ -112,7 +168,7 @@ Harap segera melakukan pengecekan unit di workshop terdekat.
 <b>💡 Info:</b>
 Harap segera memproses perpanjangan dokumen agar operasional tidak terganggu.
 ━━━━━━━━━━━━━━━━━━━━
-<i>Sistem Monitoring Asset PT. IMM</i>
+<i>Notifikasi Sistem P2H PT IMM</i>
         """
         return message.strip()
     
@@ -203,6 +259,13 @@ Harap segera memproses perpanjangan dokumen agar operasional tidak terganggu.
             
         db.commit()
         return notification
+
+    async def close(self):
+        """Close httpx client gracefully"""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+            logger.info("🔌 Telegram client closed")
 
 # Global instance
 telegram_service = TelegramService()

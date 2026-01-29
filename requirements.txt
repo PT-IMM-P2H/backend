@@ -1,12 +1,11 @@
 fastapi
-uvicorn[standard]
+uvicorn
+alembic
 python-multipart
 sqlalchemy
-alembic
 psycopg2-binary
 python-jose[cryptography]
-passlib
-argon2-cffi
+passlib[argon2]
 python-dotenv
 pydantic
 pydantic-settings
@@ -18,3 +17,5 @@ pytz
 httpx
 uuid7
 bcrypt
+xlsxwriter
+reportlab

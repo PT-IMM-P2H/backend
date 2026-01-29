@@ -9,7 +9,8 @@ from app.models.vehicle import Vehicle
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate, VehicleResponse
 from app.dependencies import get_current_user, require_role
 from app.services.p2h_service import p2h_service
-from app.utils.response import base_response 
+from app.utils.response import base_response
+from app.repositories.vehicle_repository import vehicle_repository 
 
 router = APIRouter()
 
@@ -23,8 +24,11 @@ async def get_vehicle_by_lambung(
     """
     Mencari kendaraan berdasarkan nomor lambung secara publik.
     Digunakan oleh driver untuk validasi unit sebelum mengisi form P2H.
+    Mendukung format fleksibel: P309, P.309, p 309, P,309 semua akan ditemukan.
     """
-    vehicle = db.query(Vehicle).filter(Vehicle.no_lambung == no_lambung).first()
+    # Gunakan repository method yang sudah support normalisasi
+    vehicle = vehicle_repository.get_by_hull_number(db, no_lambung)
+    
     if not vehicle:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -101,30 +105,28 @@ async def get_vehicles(
 ):
     """
     Mendapatkan semua daftar kendaraan (Wajib Login).
+    Search mendukung format fleksibel untuk nomor lambung: P309, P.309, p 309, dll.
     """
-    query = db.query(Vehicle).options(
-        joinedload(Vehicle.user),
-        joinedload(Vehicle.company)
+    # Default filter untuk is_active
+    is_active_filter = True if is_active is None else is_active
+    
+    # Gunakan repository search method yang sudah support normalisasi
+    vehicles = vehicle_repository.search_vehicles(
+        db=db,
+        search_query=search,
+        vehicle_type=vehicle_type,
+        is_active=is_active_filter
     )
     
-    # Default: hanya ambil data aktif, kecuali is_active diset eksplisit
-    if is_active is None:
-        query = query.filter(Vehicle.is_active == True)
-    else:
-        query = query.filter(Vehicle.is_active == is_active)
+    # Apply pagination manual setelah search
+    # (atau bisa modifikasi repository untuk handle pagination)
+    total = len(vehicles)
+    vehicles = vehicles[skip:skip + limit]
     
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            (Vehicle.no_lambung.ilike(search_term)) |
-            (Vehicle.plat_nomor.ilike(search_term)) |
-            (Vehicle.merk.ilike(search_term))
-        )
+    # Load relasi untuk response
+    for vehicle in vehicles:
+        db.refresh(vehicle)
     
-    if vehicle_type:
-        query = query.filter(Vehicle.vehicle_type == vehicle_type)
-    
-    vehicles = query.offset(skip).limit(limit).all()
     payload = [VehicleResponse.model_validate(v).model_dump(mode='json') for v in vehicles]
     
     return base_response(

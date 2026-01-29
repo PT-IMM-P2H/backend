@@ -25,30 +25,35 @@ class DashboardRepository:
         self,
         db: Session,
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
+        vehicle_type: Optional[str] = None
     ) -> Dict[str, int]:
         """
-        Get dashboard statistics with optional date filters.
+        Get dashboard statistics with optional date and vehicle type filters.
         
         Args:
             db: Database session
             start_date: Start date for filtering (already parsed date object)
             end_date: End date for filtering (already parsed date object)
+            vehicle_type: Optional vehicle type filter
             
         Returns:
             Dictionary with statistics
         """
-        # Total vehicles (not affected by date filter)
-        total_vehicles = db.query(func.count(Vehicle.id)).scalar() or 0
+        # Total vehicles with optional vehicle_type filter
+        vehicle_query = db.query(func.count(Vehicle.id))
+        if vehicle_type:
+            vehicle_query = vehicle_query.filter(Vehicle.vehicle_type == vehicle_type)
+        total_vehicles = vehicle_query.scalar() or 0
         
-        # P2H counts by status with date filter
-        total_normal = self.p2h_repo.count_by_status(db, 'normal', start_date, end_date)
-        total_abnormal = self.p2h_repo.count_by_status(db, 'abnormal', start_date, end_date)
-        total_warning = self.p2h_repo.count_by_status(db, 'warning', start_date, end_date)
+        # P2H counts by status with date and vehicle_type filter
+        total_normal = self.p2h_repo.count_by_status(db, 'normal', start_date, end_date, vehicle_type)
+        total_abnormal = self.p2h_repo.count_by_status(db, 'abnormal', start_date, end_date, vehicle_type)
+        total_warning = self.p2h_repo.count_by_status(db, 'warning', start_date, end_date, vehicle_type)
         
-        # Total completed P2H
+        # Total completed P2H with vehicle_type filter
         total_completed = self.p2h_repo.get_reports_query(
-            db, start_date, end_date
+            db, start_date, end_date, vehicle_type
         ).count() or 0
         
         return {

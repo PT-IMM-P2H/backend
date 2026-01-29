@@ -70,20 +70,33 @@ class AuthService:
         Returns:
             User if authentication successful, None otherwise
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"🔐 Login attempt with username: {username}")
+        
         # Try to find user by email or phone_number
         user = db.query(User).filter(
             (User.email == username) | (User.phone_number == username)
         ).first()
         
         if not user:
+            logger.warning(f"❌ User not found: {username}")
             return None
+        
+        logger.info(f"✅ User found: {user.full_name} (ID: {user.id})")
         
         if not verify_password(password, user.password_hash):
+            logger.warning(f"❌ Password mismatch for user: {user.full_name}")
             return None
+        
+        logger.info(f"✅ Password verified for user: {user.full_name}")
         
         if not user.is_active:
+            logger.warning(f"❌ User inactive: {user.full_name}")
             return None
         
+        logger.info(f"✅ Login successful: {user.full_name} ({user.role.value})")
         return user
     
     @staticmethod

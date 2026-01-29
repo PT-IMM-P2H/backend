@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
@@ -17,7 +17,8 @@ from app.schemas.p2h import (
 from app.services.p2h_service import p2h_service
 from app.dependencies import get_current_user, require_role
 from app.utils.response import base_response
-from datetime import datetime, time
+from app.utils.datetime import get_current_time, get_shift_number
+from datetime import time
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ async def get_current_shift():
     Shift 2: 15:00 - 23:00
     Shift 3: 23:00 - 07:00
     """
-    current_time = datetime.now().time()
+    current_time = get_current_time()
     
     shift_1_start = time(7, 0)   # 07:00
     shift_1_end = time(15, 0)    # 15:00
@@ -245,6 +246,30 @@ async def submit_p2h(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Submit P2H report
+    [USER, ADMIN, SUPERADMIN ONLY - Viewer tidak boleh submit]
+    
+    Validasi:
+    - Viewer tidak boleh submit
+    - Shift number harus sesuai dengan jam saat ini
+    """
+    # Authorization: Viewer tidak boleh submit P2H
+    if current_user.role == UserRole.viewer:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Viewer tidak memiliki akses untuk mengisi P2H. Silakan login sebagai User."
+        )
+    
+    # Validasi waktu submit sesuai shift
+    from app.utils.datetime import validate_shift_time
+    is_valid, error_msg = validate_shift_time(submission.shift_number)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg
+        )
+    
     try:
         report = await p2h_service.submit_p2h(db, current_user, submission)
         db.refresh(report)
@@ -264,8 +289,15 @@ async def get_p2h_reports(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    from app.models.p2h import P2HReport
-    reports = db.query(P2HReport).order_by(
+    from app.models.p2h import P2HReport, P2HDetail
+    from sqlalchemy.orm import joinedload
+    
+    # Load with details untuk menampilkan keterangan
+    reports = db.query(P2HReport).options(
+        joinedload(P2HReport.vehicle),
+        joinedload(P2HReport.user),
+        joinedload(P2HReport.details).joinedload(P2HDetail.checklist_item)
+    ).order_by(
         P2HReport.submission_date.desc(),
         P2HReport.submission_time.desc()
     ).offset(skip).limit(limit).all()

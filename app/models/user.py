@@ -15,6 +15,7 @@ class UserRole(enum.Enum):
     superadmin = "superadmin"
     admin = "admin"
     user = "user"
+    viewer = "viewer"
 
 class UserKategori(enum.Enum):
     """Pembeda entitas untuk filter laporan (IMM vs Travel)"""
@@ -25,6 +26,8 @@ class UserKategori(enum.Enum):
 
 class Company(SoftDeleteMixin, Base):
     __tablename__ = "companies"
+    __table_args__ = {'extend_existing': True}
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     nama_perusahaan = Column(String(100), nullable=False)
     status = Column(String(50)) # Contoh: User, Driver, Vendor
@@ -34,18 +37,24 @@ class Company(SoftDeleteMixin, Base):
 
 class Department(SoftDeleteMixin, Base):
     __tablename__ = "departments"
+    __table_args__ = {'extend_existing': True}
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     nama_department = Column(String(100), nullable=False)
     users = relationship("User", back_populates="department")
 
 class Position(SoftDeleteMixin, Base):
     __tablename__ = "positions"
+    __table_args__ = {'extend_existing': True}
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     nama_posisi = Column(String(100), nullable=False)
     users = relationship("User", back_populates="position")
 
 class WorkStatus(SoftDeleteMixin, Base):
     __tablename__ = "work_statuses"
+    __table_args__ = {'extend_existing': True}
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     nama_status = Column(String(50), nullable=False)
     users = relationship("User", back_populates="work_status")
@@ -54,12 +63,13 @@ class WorkStatus(SoftDeleteMixin, Base):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     full_name = Column(String(100), nullable=False)
     
     # Kredensial Login Utama (Sesuai arahan: Tanpa Username & First Name)
-    email = Column(String(100), unique=True, index=True, nullable=False)
+    email = Column(String(100), unique=True, index=True, nullable=True)
     phone_number = Column(String(20), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     
